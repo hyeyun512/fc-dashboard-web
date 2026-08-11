@@ -137,24 +137,32 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .summary-callout-side .summary-comment-list{grid-template-columns:1fr;gap:9px}
 
 /* 표를 내용에 맞게 좁히고(width:auto) 데이터 열은 모두 동일 너비로 맞춘다. 너비는 표별로 CSS 변수로 지정. */
-.summary-row{display:grid;grid-template-columns:auto minmax(240px,1fr);gap:16px;align-items:start;margin-bottom:16px}
-.summary-mom-title{font-size:11px;font-weight:800;letter-spacing:.6px;color:#b45309;margin:14px 0 8px;padding-top:12px;border-top:0.5px solid #e7e5e0}
-.summary-mom-title:empty{display:none}
+.summary-row{display:grid;grid-template-columns:auto minmax(420px,1fr);gap:16px;align-items:start;margin-bottom:16px}
 /* Summary를 배부 항목(STB/HUMAX(공통)/건물)별로 나눠 보여줄 때의 그룹 헤더 */
 .summary-group{margin-bottom:11px}
 .summary-group:last-of-type{margin-bottom:0}
 .summary-group-label{font-size:10.5px;font-weight:800;color:#1d4ed8;letter-spacing:.4px;margin-bottom:5px}
 
-/* Humax합계_상세 우측: Summary 아래에 배부 항목별 월별 추이를 작게 붙인다 */
+/* Humax합계_상세 우측: 배부 항목별 월별 추이를 먼저 크게 보여주고, 그 아래에 Summary를 붙인다
+   (추이 그래프가 이 시트의 핵심이라 좌측 표보다 넓게 쓰도록 배치했다) */
 .detail-side{display:flex;flex-direction:column;gap:12px;min-width:0}
-.detail-trend-panel{padding:12px 14px}
+.detail-trend-panel{padding:12px 16px}
 .detail-trend-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-.detail-trend-title{font-size:12.5px;font-weight:700;color:#1a202c}
+.detail-trend-title{font-size:13px;font-weight:700;color:#1a202c}
 .detail-trend-hd .legend{margin-top:0;gap:10px}
 .detail-trend-hd .leg{font-size:10.5px}
-.detail-trend-wrap{position:relative;height:150px}
+.detail-trend-tag{font-size:10.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border:0.5px solid #e2e8f0;border-radius:20px;padding:2px 9px}
+.detail-trend-wrap{position:relative;height:230px}
+/* 왜곡 수정ver 자리 — 보정 기준이 정해지기 전까지 빈 칸임을 분명히 보여준다 */
+.detail-trend-placeholder{display:flex;align-items:center;justify-content:center;border:1px dashed #cbd5e1;border-radius:10px;background:#fafafa;color:#94a3b8;font-size:12px}
 
 .sum-tbl{width:auto;table-layout:fixed}
+/* 상세 시트의 표는 좁혀서(열 너비 축소) 우측 추이 그래프에 폭을 넘긴다.
+   col 너비는 sumDetailTable이 inline style로 잡으므로 !important로 덮어쓴다. */
+#tab-sum-detail .sum-tbl col{width:76px!important}
+#tab-sum-detail .sum-tbl col:first-child{width:104px!important}
+#tab-sum-detail .sum-tbl th{padding-left:8px;padding-right:8px;font-size:10.5px}
+#tab-sum-detail .sum-tbl td{padding-left:8px;padding-right:8px;font-size:12px}
 /* Summary 표는 폭이 내용에 맞게 좁아지므로, 감싸는 박스도 같이 줄여 빈 여백이 남지 않게 한다. */
 .summary-row .tbl-box,#tab-sum-evcs .tbl-box,#tab-sum-detail .tbl-box{width:max-content;max-width:100%}
 #tab-sum-evcs .chart-2eq{display:flex;flex-wrap:wrap;align-items:flex-start}
@@ -217,17 +225,14 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .cert-value .kbadge{margin-top:0;font-size:14px;padding:4px 12px}
 .cert-note{font-size:11px;color:#94a3b8;margin-top:2px}
 
-/* ---- EVCS 하단: 국내/해외 월별 실적 추이 (가로 전체) ---- */
-.evcs-trend-panel{padding:12px 16px;display:flex;flex-direction:column}
-.evcs-trend-hd{margin-bottom:6px;justify-content:flex-end}
-.evcs-trend-wrap{position:relative;flex:1;min-height:150px}
-
 footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
 
 @media (max-width:900px){
   .kpi-row{grid-template-columns:repeat(2,1fr)}
   .chart-2col,.chart-2col.rev,.chart-2eq{grid-template-columns:1fr}
   .summary-comment-list{grid-template-columns:1fr}
+  /* 표(약 636px)와 추이 그래프(최소 420px)를 나란히 두면 화면을 넘긴다 — 좁은 화면에서는 위아래로 쌓는다. */
+  .summary-row{grid-template-columns:1fr}
 }
 
 /* 인쇄 시 상단 툴바(제목·필터·탭)·하단 footer는 제외 — 시트마다 이미 자체 제목(sheet-hd)이 있어 페이지 헤더 역할을 한다.
@@ -240,7 +245,7 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
      화면에서 그려진 크기가 그대로 남고, 인쇄용으로 줄인 박스를 뚫고 나온다(도넛이 표 밖으로 튀어나오던 원인).
      어떤 경우에도 캔버스가 컨테이너를 넘지 않도록 강제하고, object-fit으로 비율을 유지한다. */
   canvas{width:100%!important;height:100%!important;object-fit:contain}
-  .chart-wrap,.chart-wrap-lg,.donut-wrap,.cert-chart,.evcs-trend-wrap{overflow:hidden}
+  .chart-wrap,.chart-wrap-lg,.donut-wrap,.cert-chart,.detail-trend-wrap{overflow:hidden}
   .topbar,.tab-bar,footer{display:none}
   .content{max-width:none;padding:0}
   .sheet-hd{margin:0 0 10px;padding-bottom:8px}
@@ -264,11 +269,6 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .sum-block{margin-bottom:12px}
   .sum-block-row{margin-bottom:8px;gap:12px}
   .evcs-top{gap:10px}
-  .evcs-trend-panel{padding:8px 12px}
-  /* 인쇄에서는 차트 높이를 고정한다. flex:1로 두면 화면에서 그려진 canvas 높이가 그대로 남아
-     칸이 필요 이상으로 커진다. */
-  .evcs-trend-wrap{flex:none;height:150px;min-height:0}
-  .evcs-trend-hd{margin-bottom:2px!important}
   /* 위 .tbl-box 일괄 margin이 !important라 표·도넛 아래선이 어긋난다 — 이 표만 여백 0으로 되돌린다. */
   .evcs-top-left .tbl-box{margin-bottom:0!important}
   #tab-sum-evcs .tbl-hd{padding:5px 12px}
@@ -316,19 +316,19 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-summary .hq-chip,#tab-evcs .hq-chip,#tab-category .hq-chip{font-size:8px;padding:0 4px;margin-right:4px}
   /* 집행률 배지가 셀 안에서 가장 큰 요소라 행 높이를 결정한다 — 배지도 함께 줄여야 표가 실제로 작아진다. */
   #tab-summary .pl-tbl .kbadge,#tab-evcs .pl-tbl .kbadge,#tab-category .pl-tbl .kbadge,#tab-alloc .pl-tbl .kbadge{font-size:8px;padding:1px 5px}
-  .summary-mom-title{margin:10px 0 6px;padding-top:8px}
   .summary-callout{padding:8px 12px!important;margin-bottom:6px!important}
   .summary-comment-list{font-size:11.5px;line-height:1.4}
   .summary-group{margin-bottom:6px}
   .summary-group-label{margin-bottom:2px}
   .detail-side{gap:8px}
-  /* 상세 표를 인쇄에서 더 좁혀, 우측 Summary가 넓게 쓰이도록 한다
-     (칸이 좁으면 코멘트가 잘게 줄바꿈되어 세로로 길어지고 한 페이지를 넘긴다). */
-  #tab-sum-detail .sum-tbl col{width:78px!important}
-  #tab-sum-detail .sum-tbl col:first-child{width:104px!important}
+  /* 상세 표를 인쇄에서 더 좁혀, 우측 추이 그래프 2개가 넓게 쓰이도록 한다. */
+  #tab-sum-detail .sum-tbl col{width:70px!important}
+  #tab-sum-detail .sum-tbl col:first-child{width:96px!important}
   #tab-sum-detail .summary-comment-list{font-size:10.5px;line-height:1.35}
   #tab-sum-detail .summary-comment-list li{gap:6px}
+  /* 그래프가 2개로 늘어 한 페이지에 들어가도록 각각의 높이를 줄인다 (Summary는 2줄로 짧아졌다). */
   .detail-trend-panel{padding:8px 10px}
   .detail-trend-hd{margin-bottom:4px}
-  .detail-trend-wrap{height:104px}
+  .detail-trend-wrap{height:120px}
+  .detail-trend-title{font-size:11.5px}
 }

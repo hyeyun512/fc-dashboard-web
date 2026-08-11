@@ -197,31 +197,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             </div>
           </div>
         </div>
-
-        <div className="section-lead">
-          국내 · 해외 월별 실적 추이 <span className="sub" id="evcsTrendSub" />
-        </div>
-        <div className="panel evcs-trend-panel">
-          <div className="panel-hd evcs-trend-hd">
-            <div className="legend">
-              <span className="leg">
-                <span className="leg-line" style={{ borderColor: "#0f172a" }} />
-                합계
-              </span>
-              <span className="leg">
-                <span className="leg-line" style={{ borderColor: "#1d4ed8" }} />
-                국내
-              </span>
-              <span className="leg">
-                <span className="leg-line" style={{ borderColor: "#94a3b8" }} />
-                해외
-              </span>
-            </div>
-          </div>
-          <div className="evcs-trend-wrap">
-            <canvas id="evcsTrendChart" />
-          </div>
-        </div>
       </div>
 
       {/* ===================== SUMMARY③ Humax합계_상세 ===================== */}
@@ -244,27 +219,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="note" id="sumDetailNote" />
           </div>
           <div className="detail-side">
-            <div className="summary-callout summary-callout-side" style={{ borderLeftColor: "#1d4ed8" }}>
-              <div className="summary-callout-title" style={{ color: "#1d4ed8" }}>
-                Summary
-              </div>
-              {SUMMARY_DETAIL_GROUPS.map((g) => (
-                <div className="summary-group" key={g.label}>
-                  <div className="summary-group-label">{g.label}</div>
-                  <ul className="summary-comment-list">
-                    {g.lines.map((line, i) => (
-                      <li key={i}>
-                        <span className="summary-comment-dot" style={{ background: "#1d4ed8" }} />
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-              <div className="summary-mom-title" id="sumDetailMomTitle" />
-              <ul className="summary-comment-list" id="sumDetailMomList" />
-            </div>
-
             <div className="panel detail-trend-panel">
               <div className="detail-trend-hd">
                 <span className="detail-trend-title">월별 배부액 추이</span>
@@ -286,6 +240,37 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               <div className="detail-trend-wrap">
                 <canvas id="detailAllocTrend" />
               </div>
+            </div>
+
+            {/* 왜곡 수정 기준(무엇을 어떻게 보정할지)이 아직 정해지지 않아, 자리만 잡아두고 기준 확정 시
+                위 차트와 같은 형태로 채운다. 임의 보정값을 그리면 보고 수치로 오해될 수 있어 비워둔다. */}
+            <div className="panel detail-trend-panel">
+              <div className="detail-trend-hd">
+                <span className="detail-trend-title">월별 배부액 추이 (왜곡 수정ver)</span>
+                <span className="detail-trend-tag">준비 중</span>
+              </div>
+              <div className="detail-trend-wrap detail-trend-placeholder">
+                <span>보정 기준 확정 후 표시 예정</span>
+              </div>
+            </div>
+
+            <div className="summary-callout summary-callout-side" style={{ borderLeftColor: "#1d4ed8" }}>
+              <div className="summary-callout-title" style={{ color: "#1d4ed8" }}>
+                Summary
+              </div>
+              {SUMMARY_DETAIL_GROUPS.map((g) => (
+                <div className="summary-group" key={g.label}>
+                  <div className="summary-group-label">{g.label}</div>
+                  <ul className="summary-comment-list">
+                    {g.lines.map((line, i) => (
+                      <li key={i}>
+                        <span className="summary-comment-dot" style={{ background: "#1d4ed8" }} />
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
             </div>
           </div>
         </div>

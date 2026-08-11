@@ -536,8 +536,21 @@ export function initDashboard(data: DashboardData): () => void {
     return new Chart(canvas, config);
   }
 
-  // Summary 시트 전용 파랑 계열 팔레트 (초록 제외) — 배부 항목 6개 순서에 맞춘다.
-  const ALLOC_BLUES = ["#1e3a8a", "#1d4ed8", "#3b82f6", "#60a5fa", "#93c5fd", "#94a3b8"];
+  /**
+   * Summary 시트 도넛 팔레트 — 배부 항목 6개 순서(STB/MOBILITY/EVCS국내/EVCS해외/HUMAX공통/건물)에 맞춘다.
+   * 파랑 명도만 6단계로 나누면 인접 조각이 서로 구분되지 않아, 파랑을 기본 축으로 두되
+   * 조각끼리는 색상(hue)까지 벌려 구분한다 — 보고서에서는 색이 예쁜 것보다 구분되는 게 우선이다.
+   */
+  const ALLOC_DONUT_COLORS = ["#1e3a8a", "#7c3aed", "#2563eb", "#38bdf8", "#0d9488", "#f59e0b"];
+  /** 조각 위 비중(%) 글자색 — 밝은 조각에 흰 글씨를 쓰면 안 보이므로 밝기에 따라 흰색/남색을 고른다. */
+  function pctTextColor(hex: string): string {
+    const n = parseInt(hex.slice(1), 16);
+    const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255].map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b > 0.42 ? "#0f172a" : "#ffffff";
+  }
 
   /**
    * 반올림해도 합이 정확히 100%가 되도록 비중을 계산한다 (최대잔여법).
@@ -579,7 +592,7 @@ export function initDashboard(data: DashboardData): () => void {
         meta.data.forEach((arc: any, i: number) => {
           if (pcts[i] < 4) return;
           const { x, y } = arc.tooltipPosition();
-          ctx.fillStyle = "#fff";
+          ctx.fillStyle = pctTextColor(ALLOC_DONUT_COLORS[i % ALLOC_DONUT_COLORS.length]);
           ctx.font = "700 11px Pretendard, sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
@@ -603,7 +616,7 @@ export function initDashboard(data: DashboardData): () => void {
       plugins: [centerAndPct],
       data: {
         labels,
-        datasets: [{ data: values, backgroundColor: ALLOC_BLUES, borderWidth: 2, borderColor: "#fff" }],
+        datasets: [{ data: values, backgroundColor: ALLOC_DONUT_COLORS, borderWidth: 2, borderColor: "#fff" }],
       },
       options: {
         responsive: true,
@@ -633,7 +646,7 @@ export function initDashboard(data: DashboardData): () => void {
     return labels
       .map(
         (l, i) =>
-          `<li><span class="dleg-dot" style="background:${ALLOC_BLUES[i % ALLOC_BLUES.length]}"></span>` +
+          `<li><span class="dleg-dot" style="background:${ALLOC_DONUT_COLORS[i % ALLOC_DONUT_COLORS.length]}"></span>` +
           `<span class="dleg-name">${l}</span>${pcts ? `<span class="dleg-pct">${pcts[i]}%</span>` : ""}</li>`
       )
       .join("");
@@ -1377,10 +1390,7 @@ export function initDashboard(data: DashboardData): () => void {
     merged.humaxTotal = rows.reduce((s, r) => s + r.humaxTotal, 0);
     return merged;
   }
-  /** 표시 기준 금액 = (A) Humax 배부 + (B) 건물. */
-  const allocAmount = (v: AllocValues13 & { humaxTotal: number }) => v.humaxTotal + v.building;
-
-  /** Summary③의 법인 행 목록 (소액 법인은 한 행으로 병합) — 표와 전월 대비 분석이 같은 기준을 쓰도록 공용화. */
+  /** Summary③의 법인 행 목록 (소액 법인은 한 행으로 병합). */
   function corpDetailRowsOf(board: AllocationRow[]): SumDetailRow[] {
     const corpRows = corpCompanyRows(board);
     const minor = corpRows.filter((r) => MINOR_CORPS.includes(r.label));
@@ -1390,54 +1400,6 @@ export function initDashboard(data: DashboardData): () => void {
     if (minor.length) out.push({ label: MINOR_CORP_LABEL, alloc: mergeAllocRows(minor), indent: true });
     return out;
   }
-
-  /**
-   * 전월 대비 급증/급감 행을 찾아낸다 — 비용을 줄이려는 관점에서 "확인이 필요한 행"만 골라 Summary에 싣는다.
-   * 당월/누계 보기와 무관하게 항상 당월 vs 전월 당월로 비교하고, 금액·비율이 모두 유의미한 경우만 남긴다.
-   */
-  const MOM_MIN_PCT = 30;
-  function momAlertsHtml(): string {
-    const idx = months.indexOf(currentMonth);
-    if (idx < 1) return "";
-    const cur = data.byMonth[currentMonth];
-    const prev = data.byMonth[months[idx - 1]];
-
-    const collect = (m: MonthBlockLike) => {
-      const map = new Map<string, number>();
-      for (const c of m.hqCategoryAlloc) map.set(`본사 ${c.category}`, allocAmount(c));
-      for (const r of corpDetailRowsOf(m.allocationBoard.actual)) map.set(`법인 ${r.label}`, allocAmount(r.alloc));
-      return map;
-    };
-    const curMap = collect(cur);
-    const prevMap = collect(prev);
-
-    const alerts = [...curMap.entries()]
-      .map(([label, now]) => {
-        const before = prevMap.get(label) || 0;
-        const diff = now - before;
-        const pct = before ? (diff / before) * 100 : now ? Infinity : 0;
-        return { label, diff, pct };
-      })
-      .filter((a) => Math.abs(a.diff) >= REMARK_MIN_DIFF_WON && (a.pct === Infinity || Math.abs(a.pct) >= MOM_MIN_PCT))
-      .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
-      .slice(0, 4);
-
-    if (!alerts.length) {
-      return `<li><span class="summary-comment-dot" style="background:#94a3b8"></span>전월 대비 급격히 증감한 항목은 없습니다.</li>`;
-    }
-    return alerts
-      .map((a) => {
-        const up = a.diff > 0;
-        const pctText = a.pct === Infinity ? "신규 발생" : `${up ? "+" : ""}${Math.round(a.pct)}%`;
-        return (
-          `<li><span class="summary-comment-dot" style="background:${up ? "#dc2626" : "#2563eb"}"></span>` +
-          `<span><b>${a.label}</b> 전월 대비 <b class="${up ? "neg" : "pos"}">${up ? "+" : ""}${fmtM(a.diff)}백만원(${pctText})</b> ${up ? "급증" : "감소"}</span></li>`
-        );
-      })
-      .join("");
-  }
-  type MonthBlockLike = { hqCategoryAlloc: DashboardData["byMonth"][string]["hqCategoryAlloc"]; allocationBoard: AllocationBoardLike };
-  type AllocationBoardLike = { actual: AllocationRow[] };
 
   function renderSumDetail() {
     const scope = getScope();
@@ -1466,7 +1428,7 @@ export function initDashboard(data: DashboardData): () => void {
     );
 
     // 배부 항목별 월별 추이 — 각 항목의 "정상 방향"(STB 소멸 / 공통 감소 / 건물 계단식 감소)과
-    // 실제 흐름이 맞는지 Summary 옆에서 바로 확인할 수 있게 한다.
+    // 실제 흐름이 맞는지 Summary보다 먼저(우측 최상단에서) 확인할 수 있게 한다.
     queueChart("sum-detail", "detailAllocTrend", () => {
       const pick = (m: string, f: "stb" | "humaxCommon" | "building") =>
         data.byMonth[m].allocationBoard.actual.find((r) => r.label === "Total")?.[f] || 0;
@@ -1481,11 +1443,6 @@ export function initDashboard(data: DashboardData): () => void {
     const hasMinor = corpCompanyRows(board).some((r) => MINOR_CORPS.includes(r.label));
     // 본사 구분에도 '기타'가 있으므로 "법인의 기타"로 명확히 적는다.
     setText("sumDetailNote", hasMinor ? `* 법인의 ${MINOR_CORP_LABEL} = ${MINOR_CORPS.join(", ")} (비중이 작아 합산 표기)` : "");
-
-    // 전월 대비 급증/급감 행은 Summary 박스 하단에 자동으로 덧붙인다 (매월 값이 달라지므로 고정 문구로 둘 수 없다).
-    const momIdx = months.indexOf(currentMonth);
-    setText("sumDetailMomTitle", momIdx >= 1 ? `전월(${months[momIdx - 1]}) 대비 확인 필요` : "");
-    setHtml("sumDetailMomList", momAlertsHtml());
   }
 
   // ================= SUMMARY② EVCS사업부 =================
@@ -1510,6 +1467,8 @@ export function initDashboard(data: DashboardData): () => void {
 
     // 소계를 그룹 머리행으로 올리고 국내/해외를 그 아래 하위 행으로 둔다 (별도 머리행 없이 계층 표현).
     // 값이 전부 0인 하위 행(예: 법인의 국내 배부)은 읽는 사람에게 의미가 없어 생략한다.
+    // 법인은 국내 배부가 없어 하위 행이 생략되므로, 행 이름 자체에 "(해외)"를 밝혀 범위를 분명히 한다.
+    const ROW_LABEL: Record<"본사" | "법인", string> = { 본사: "본사", 법인: "법인(해외)" };
     const hqBlock = (hq: "본사" | "법인") => {
       const m = monthE.byHq[hq];
       const c = cumE.byHq[hq];
@@ -1518,7 +1477,7 @@ export function initDashboard(data: DashboardData): () => void {
         { label: "국내", mv: m.domestic.actual, cv: c.domestic.actual, av: a.domestic },
         { label: "해외", mv: m.overseas.actual, cv: c.overseas.actual, av: a.overseas },
       ].filter((s) => s.mv !== 0 || s.cv !== 0 || s.av !== 0);
-      const parent = line(hq, m.domestic.actual + m.overseas.actual, c.domestic.actual + c.overseas.actual, a.total, "subtot");
+      const parent = line(ROW_LABEL[hq], m.domestic.actual + m.overseas.actual, c.domestic.actual + c.overseas.actual, a.total, "subtot");
       // 남은 하위 행이 하나뿐이면 그 값이 그룹 행과 똑같아 중복이므로 하위 행을 생략한다 (예: 국내 배부가 없는 법인).
       if (subs.length < 2) return parent;
       return parent + subs.map((s) => line(s.label, s.mv, s.cv, s.av, "fee-sub")).join("");
@@ -1550,34 +1509,6 @@ export function initDashboard(data: DashboardData): () => void {
     queueChart("sum-evcs", `evcsDonut${key}`, () => allocDonut(`evcsDonut${key}`, labels, values));
   }
 
-  /**
-   * 국내/해외 월별 실적 추이 — 국내 철수 예정이라 "국내가 실제로 줄고 있는지", 해외가 늘고 있는지를 본다.
-   * 예산선은 그리지 않는다 (이 시트는 실적 추이만 본다).
-   */
-  function evcsTrendChart(): AnyChart {
-    const dom = trend.evcs_domestic.map((x) => x.actual);
-    const ovs = trend.evcs_overseas.map((x) => x.actual);
-    const tot = months.map((_, i) => dom[i] + ovs[i]);
-    // 합계선은 항상 국내·해외 위에 놓이므로 가장 진한 색·굵은 선으로 두어 EVCS 전체 규모를 먼저 읽게 한다.
-    return lineChartMulti("evcsTrendChart", months, [
-      { label: "합계", data: tot, borderColor: "#0f172a", backgroundColor: "#0f172a", tension: 0.3, pointRadius: 3, borderWidth: 2.5 },
-      { label: "국내", data: dom, borderColor: "#1d4ed8", backgroundColor: "#1d4ed8", tension: 0.3, pointRadius: 3, borderWidth: 2 },
-      { label: "해외", data: ovs, borderColor: "#94a3b8", backgroundColor: "#94a3b8", tension: 0.3, pointRadius: 3, borderWidth: 2 },
-    ]);
-  }
-
-  /** 합계·국내·해외 추이를 문장 한 줄로 요약 — 첫 달 대비 최근 달 증감. */
-  function evcsTrendNote(): string {
-    if (months.length < 2) return "";
-    const dom = trend.evcs_domestic.map((x) => x.actual);
-    const ovs = trend.evcs_overseas.map((x) => x.actual);
-    const tot = months.map((_, i) => dom[i] + ovs[i]);
-    const last = months.length - 1;
-    const pct = (arr: number[]) => (arr[0] ? Math.round(((arr[last] - arr[0]) / arr[0]) * 100) : 0);
-    const word = (p: number) => (p > 0 ? `+${p}% 증가` : p < 0 ? `${p}% 감소` : "보합");
-    return `${months[0]} 대비 ${months[last]} 기준 합계 ${word(pct(tot))}, 국내 ${word(pct(dom))}, 해외 ${word(pct(ovs))}`;
-  }
-
   function renderSumEvcs() {
     const monthE = data.byMonth[currentMonth].evcs;
     const cumE = data.byMonth[currentMonth].cumulative.evcs;
@@ -1589,9 +1520,6 @@ export function initDashboard(data: DashboardData): () => void {
     setText("sumEvcsSub", `${data.byMonth[currentMonth].cumulative.label} 실적 기준 · 백만원`);
     renderEvcsCatDonut("본사", "Hq");
     renderEvcsCatDonut("법인", "Corp");
-
-    setText("evcsTrendSub", `${months[0]}~${months[months.length - 1]} 실적 · 백만원 — ${evcsTrendNote()}`);
-    queueChart("sum-evcs", "evcsTrendChart", evcsTrendChart);
   }
 
   function renderAll() {
