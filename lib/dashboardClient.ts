@@ -12,6 +12,7 @@ import type {
   EvcsBlock,
 } from "./types";
 import { ALLOC_TREND_ADJUSTMENTS } from "./trendAdjustments";
+import { SUMMARY_TREND_NOTE } from "./summaryComments";
 import {
   ALLOC_DONUT_LABELS,
   ALLOC_DONUT_COLORS,
@@ -1491,19 +1492,24 @@ export function initDashboard(data: DashboardData): () => void {
     });
 
     // 그래프 아래에 "무엇을 어떻게 되돌렸는지"를 밝힌다 — 보정된 그림만 보고 원장 수치로 오해하면 안 된다.
+    // 보정 내역은 차트를 움직인 값에서 그대로 만들어 둘이 어긋날 수 없게 하고,
+    // 그래프를 건드리지 않는 설명(일회성 비용 등)은 엑셀에서 받아 '참고'로 따로 붙인다.
     const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`);
-    setHtml(
-      "detailAllocTrendAdjNote",
+    const adjNoteHtml =
       appliedAdj.length === 0
         ? ""
         : `<div class="detail-trend-note-hd">보정 내역 <span>원장 수치는 그대로이며, 아래 항목만 발생 시점으로 되돌려 그린 그래프입니다.</span></div>` +
-            appliedAdj
-              .map((adj) => {
-                const moves = adj.deltas.map((d) => `${d.month} ${signed(d.amountMillion)}`).join(" / ");
-                return `<div class="detail-trend-note-item"><b>${ALLOC_SERIES_LABEL[adj.series]} · ${adj.label}</b> ${moves} (백만원)<br/>${adj.reason}</div>`;
-              })
-              .join("")
-    );
+          appliedAdj
+            .map((adj) => {
+              const moves = adj.deltas.map((d) => `${d.month} ${signed(d.amountMillion)}`).join(" / ");
+              return `<div class="detail-trend-note-item"><b>${ALLOC_SERIES_LABEL[adj.series]} · ${adj.label}</b> ${moves} (백만원)<br/>${adj.reason}</div>`;
+            })
+            .join("");
+    const trendNoteHtml = SUMMARY_TREND_NOTE.length
+      ? `<div class="detail-trend-note-hd${adjNoteHtml ? " detail-trend-note-hd-2nd" : ""}">참고 <span>그래프에는 반영하지 않은 설명입니다.</span></div>` +
+        SUMMARY_TREND_NOTE.map((line) => `<div class="detail-trend-note-item">${line}</div>`).join("")
+      : "";
+    setHtml("detailAllocTrendAdjNote", adjNoteHtml + trendNoteHtml);
 
     // '기타'로 묶은 법인이 무엇인지 표 아래 각주로 밝힌다.
     const hasMinor = corpCompanyRows(board).some((r) => MINOR_CORPS.includes(r.label));

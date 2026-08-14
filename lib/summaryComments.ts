@@ -1,7 +1,7 @@
 /**
- * Summary① ~ ③ 탭의 [Summary] 코멘트 (경영진 보고용 고정 텍스트).
+ * Summary① ~ ③ 탭의 [Summary] 박스 문구 (경영진 보고용 고정 텍스트).
  *
- * ⚠️ 이 파일은 프로젝트 루트의 "코멘트 작성용.xlsx"에서 자동 생성됩니다. 직접 고치지 마세요.
+ * ⚠️ 이 파일은 프로젝트 루트의 "Summary 작성용.xlsx"에서 자동 생성됩니다. 직접 고치지 마세요.
  *    문구를 바꾸려면 엑셀을 수정한 뒤 `npm run sync:comments`를 실행합니다.
  */
 export type SummaryCommentKey =
@@ -37,6 +37,7 @@ export const SUMMARY_DETAIL_GROUPS: SummaryCommentGroup[] = [
     lines: [
       "누계 실적 3,666 / 예산 3,080, 집행률 119%(+587)로 예산을 초과했습니다.",
       "Staff부문 +466(급여 +217), HBR +124 초과가 주원인으로, 감소 추세 관리가 필요합니다.",
+      "1월, 5월 일회성 집행으로 배부액 상승: 26년 외부감사 착수금 200백만(1월), 15차 주식선택권 취소 216백만(5월)",
     ],
   },
   {
@@ -46,6 +47,18 @@ export const SUMMARY_DETAIL_GROUPS: SummaryCommentGroup[] = [
       "1~3월 평균 278 → 4~6월 평균 126으로 사옥 이전에 따른 계단식 감소가 확인됩니다.",
     ],
   },
+];
+
+/**
+ * '월별 배부액 추이 (왜곡 수정ver)' 그래프 하단 '참고' 블록.
+ *
+ * 그 위의 "보정 내역"은 lib/trendAdjustments.ts 값에서 자동 생성된다 — 차트를 움직인 숫자와
+ * 설명이 어긋나면 안 되기 때문이다. 여기에는 보정 대상이 아닌 것(제 달에 제대로 기표됐지만
+ * 반복되지 않는 일회성 비용 등), 즉 그래프는 그대로 두고 말로만 짚어야 할 내용을 적는다.
+ * 비어 있으면 참고 블록 자체가 표시되지 않는다.
+ */
+export const SUMMARY_TREND_NOTE: string[] = [
+  "1월, 5월 일회성 집행: 26년 외부감사 착수금 200백만(1월), 15차 주식선택권 취소 216백만(5월). 제외 시 월 배부액 470 내외로 평탄합니다.",
 ];
 
 export const SUMMARY_COMMENTS: Record<SummaryCommentKey, string[]> = {

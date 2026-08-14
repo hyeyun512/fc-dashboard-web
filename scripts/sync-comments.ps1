@@ -1,15 +1,20 @@
 ﻿<#
-  "코멘트 작성용.xlsx" → lib/summaryComments.ts 동기화.
+  "Summary 작성용.xlsx" → lib/summaryComments.ts 동기화.
 
-  엑셀에서 Summary 코멘트를 고친 뒤 이 스크립트를 돌리면 대시보드가 쓰는 TS 파일이 다시 만들어진다.
+  엑셀에서 Summary 문구를 고친 뒤 이 스크립트를 돌리면 대시보드가 쓰는 TS 파일이 다시 만들어진다.
       npm run sync:comments
 
-  엑셀 시트(첫 번째 시트) 형식 — 헤더 1행 + 코멘트 박스 1개당 1행:
-      탭 | 기간 | 구분 | 코멘트
-    · 탭   : Humax합계 / EVCS사업부 / Humax합계_상세
-    · 기간 : "6월"처럼 당월이면 당월 박스, "6월 누계"처럼 '누계'가 들어가면 누계 박스
-    · 구분 : Humax합계_상세에서만 사용 (STB / HUMAX(공통) / 건물). 나머지는 비워둔다
-    · 코멘트: 한 셀 안에 Alt+Enter로 줄바꿈, 줄마다 "- "로 시작 (하이픈은 있어도 없어도 된다)
+  엑셀 시트(첫 번째 시트) 형식 — 헤더 1행 + 박스 1개당 1행:
+      탭 | 기간 | 구분 | Summary
+    · 탭     : Humax합계 / EVCS사업부 / Humax합계_상세
+    · 기간   : "6월"처럼 당월이면 당월 박스, "6월 누계"처럼 '누계'가 들어가면 누계 박스
+    · 구분   : Humax합계_상세에서만 사용 (STB / HUMAX(공통) / 건물). 나머지는 비워둔다
+    · Summary: 한 셀 안에 Alt+Enter로 줄바꿈, 줄마다 "- "로 시작 (하이픈은 있어도 없어도 된다)
+
+  '왜곡 수정ver' 그래프 하단 노트도 여기서 관리한다 — 탭에 'Humax합계_상세',
+  구분에 '월별 배부액 추이'를 적으면 SUMMARY_TREND_NOTE로 나간다. 이 줄들은 그래프 아래
+  '참고' 블록에 그대로 붙고, 그 위의 '보정 내역'은 lib/trendAdjustments.ts에서 자동 생성된다
+  (보정 수치와 설명이 어긋나지 않도록 자동 생성분은 엑셀로 덮지 않는다).
 
   엑셀 의존성 없이 xlsx(=zip+xml)를 직접 읽으므로, 파일이 엑셀에서 열려 있어도 동작한다.
 #>
@@ -21,7 +26,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Split-Path -Parent $PSScriptRoot
-if (-not $Xlsx) { $Xlsx = Join-Path $repoRoot "코멘트 작성용.xlsx" }
+if (-not $Xlsx) { $Xlsx = Join-Path $repoRoot "Summary 작성용.xlsx" }
 if (-not $Out) { $Out = Join-Path $repoRoot "lib\summaryComments.ts" }
 
 if (-not (Test-Path -LiteralPath $Xlsx)) { throw "엑셀 파일을 찾을 수 없습니다: $Xlsx" }
@@ -122,7 +127,8 @@ function Split-Lines([string]$text) {
 
 $boxes = @{}                                              # key → string[]
 $detailGroups = New-Object System.Collections.Generic.List[object]  # 시트에 적힌 순서 유지
-$detailPeriod = ""                                        # 상세 코멘트가 어느 기간 기준인지 (B열)
+$detailPeriod = ""                                        # 상세 Summary가 어느 기간 기준인지 (B열)
+$trendNote = @()                                          # '왜곡 수정ver' 그래프 하단 '참고' 블록
 $seenRows = 0
 
 foreach ($entry in $rows) {
@@ -141,8 +147,14 @@ foreach ($entry in $rows) {
   $tabKey = Normalize $tab
   if ($tabKey -like "*상세*") {
     if (-not $group) { throw "행 ${rowNum}: 'Humax합계_상세'는 구분(C열)이 비어 있으면 안 됩니다." }
-    $detailGroups.Add([pscustomobject]@{ Label = $group; Lines = $lines })
-    if (-not $detailPeriod) { $detailPeriod = $period }
+    # 구분에 '추이'가 들어간 행은 Summary 박스가 아니라 '왜곡 수정ver' 그래프 하단 노트로 보낸다.
+    if ((Normalize $group) -like "*추이*") {
+      if ($trendNote.Count -gt 0) { throw "행 ${rowNum}: '월별 배부액 추이' 행이 두 번 나옵니다. 한 행에 모아 주세요." }
+      $trendNote = $lines
+    } else {
+      $detailGroups.Add([pscustomobject]@{ Label = $group; Lines = $lines })
+      if (-not $detailPeriod) { $detailPeriod = $period }
+    }
   } elseif ($tabKey -like "*evcs*") {
     $boxes["evcs"] = $lines
   } elseif ($tabKey -like "*humax*") {
@@ -153,12 +165,12 @@ foreach ($entry in $rows) {
   }
 }
 
-if ($seenRows -eq 0) { throw "엑셀에서 읽어온 코멘트가 한 줄도 없습니다. 시트 형식을 확인해 주세요." }
+if ($seenRows -eq 0) { throw "엑셀에서 읽어온 Summary가 한 줄도 없습니다. 시트 형식을 확인해 주세요." }
 
 foreach ($required in @("humax_total_month", "humax_total_cum", "evcs")) {
-  if (-not $boxes.ContainsKey($required)) { throw "필수 코멘트 박스가 비어 있습니다: $required" }
+  if (-not $boxes.ContainsKey($required)) { throw "필수 Summary 박스가 비어 있습니다: $required" }
 }
-if ($detailGroups.Count -eq 0) { throw "필수 코멘트 박스가 비어 있습니다: Humax합계_상세" }
+if ($detailGroups.Count -eq 0) { throw "필수 Summary 박스가 비어 있습니다: Humax합계_상세" }
 
 function Escape-TS([string]$s) {
   return $s.Replace("\", "\\").Replace('"', '\"')
@@ -168,9 +180,9 @@ $sb = New-Object System.Text.StringBuilder
 function W([string]$line) { [void]$sb.AppendLine($line) }
 
 W '/**'
-W ' * Summary① ~ ③ 탭의 [Summary] 코멘트 (경영진 보고용 고정 텍스트).'
+W ' * Summary① ~ ③ 탭의 [Summary] 박스 문구 (경영진 보고용 고정 텍스트).'
 W ' *'
-W ' * ⚠️ 이 파일은 프로젝트 루트의 "코멘트 작성용.xlsx"에서 자동 생성됩니다. 직접 고치지 마세요.'
+W ' * ⚠️ 이 파일은 프로젝트 루트의 "Summary 작성용.xlsx"에서 자동 생성됩니다. 직접 고치지 마세요.'
 W ' *    문구를 바꾸려면 엑셀을 수정한 뒤 `npm run sync:comments`를 실행합니다.'
 W ' */'
 W 'export type SummaryCommentKey ='
@@ -206,6 +218,18 @@ foreach ($g in $detailGroups) {
 }
 W '];'
 W ''
+W '/**'
+W " * '월별 배부액 추이 (왜곡 수정ver)' 그래프 하단 '참고' 블록."
+W ' *'
+W ' * 그 위의 "보정 내역"은 lib/trendAdjustments.ts 값에서 자동 생성된다 — 차트를 움직인 숫자와'
+W ' * 설명이 어긋나면 안 되기 때문이다. 여기에는 보정 대상이 아닌 것(제 달에 제대로 기표됐지만'
+W ' * 반복되지 않는 일회성 비용 등), 즉 그래프는 그대로 두고 말로만 짚어야 할 내용을 적는다.'
+W ' * 비어 있으면 참고 블록 자체가 표시되지 않는다.'
+W ' */'
+W 'export const SUMMARY_TREND_NOTE: string[] = ['
+foreach ($line in $trendNote) { W ("  `"" + (Escape-TS $line) + "`",") }
+W '];'
+W ''
 W 'export const SUMMARY_COMMENTS: Record<SummaryCommentKey, string[]> = {'
 foreach ($key in @("humax_total_month", "humax_total_cum", "evcs")) {
   W ("  " + $key + ": [")
@@ -227,3 +251,4 @@ Write-Host ("  EVCS사업부          : {0}줄" -f $boxes["evcs"].Count)
 foreach ($g in $detailGroups) {
   Write-Host ("  Humax합계_상세 / {0} : {1}줄" -f $g.Label, $g.Lines.Count)
 }
+Write-Host ("  월별 배부액 추이(참고) : {0}줄" -f $trendNote.Count)

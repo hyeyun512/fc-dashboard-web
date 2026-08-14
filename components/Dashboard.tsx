@@ -248,7 +248,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             </div>
 
             {/* 회계 처리 시기 오류로 튄 월을 되돌린 추이. 보정 내역은 lib/trendAdjustments.ts에
-                선언해두고, 차트와 하단 설명이 같은 값을 쓰도록 한다. */}
+                선언해두고, 차트와 하단 설명이 같은 값을 쓰도록 한다.
+                하단 '참고' 블록은 "Summary 작성용.xlsx"에서 관리한다 (SUMMARY_TREND_NOTE). */}
             <div className="panel detail-trend-panel">
               <div className="detail-trend-hd">
                 <span className="detail-trend-title">월별 배부액 추이 (왜곡 수정ver)</span>
