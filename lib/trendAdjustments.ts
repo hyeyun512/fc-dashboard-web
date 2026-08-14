@@ -10,7 +10,7 @@
  *
  * 새 보정이 생기면 이 배열에만 추가하면 되고, 차트와 하단 설명이 함께 갱신된다.
  */
-export type AllocSeriesKey = "stb" | "humaxCommon" | "building";
+import type { AllocSeriesKey } from "./allocPalette";
 
 export type AllocTrendAdjustment = {
   /** 어느 선을 보정하는지 */
@@ -21,12 +21,6 @@ export type AllocTrendAdjustment = {
   deltas: { month: string; amountMillion: number }[];
   /** 왜 이렇게 보정하는지 — 하단에 그대로 적힌다. */
   reason: string;
-};
-
-export const ALLOC_SERIES_LABEL: Record<AllocSeriesKey, string> = {
-  stb: "STB",
-  humaxCommon: "HUMAX(공통)",
-  building: "건물",
 };
 
 export const ALLOC_TREND_ADJUSTMENTS: AllocTrendAdjustment[] = [

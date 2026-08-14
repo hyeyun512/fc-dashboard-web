@@ -4,6 +4,24 @@ import { useEffect, useRef } from "react";
 import type { DashboardData } from "@/lib/types";
 import { initDashboard } from "@/lib/dashboardClient";
 import { SUMMARY_COMMENTS, SUMMARY_DETAIL_GROUPS, type SummaryCommentKey } from "@/lib/summaryComments";
+import { ALLOC_SERIES_LABEL, ALLOC_SERIES_COLOR, ALLOC_TREND_SERIES } from "@/lib/allocPalette";
+
+/**
+ * 배부액 추이 그래프의 범례 — 선 색과 같은 정의(allocPalette)를 쓰므로 색이 따로 놀 수 없다.
+ * Humax합계의 구성비 도넛과도 같은 팔레트다.
+ */
+function AllocTrendLegend() {
+  return (
+    <span className="legend">
+      {ALLOC_TREND_SERIES.map((key) => (
+        <span className="leg" key={key}>
+          <span className="leg-line" style={{ borderColor: ALLOC_SERIES_COLOR[key] }} />
+          {ALLOC_SERIES_LABEL[key]}
+        </span>
+      ))}
+    </span>
+  );
+}
 
 /**
  * 경영진 보고용 고정 코멘트 — 화면에서 직접 고치지 않고, 텍스트를 받아 summaryComments.ts를 수정해 배포한다.
@@ -222,20 +240,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="panel detail-trend-panel">
               <div className="detail-trend-hd">
                 <span className="detail-trend-title">월별 배부액 추이</span>
-                <span className="legend">
-                  <span className="leg">
-                    <span className="leg-line" style={{ borderColor: "#1e3a8a" }} />
-                    STB
-                  </span>
-                  <span className="leg">
-                    <span className="leg-line" style={{ borderColor: "#3b82f6" }} />
-                    HUMAX(공통)
-                  </span>
-                  <span className="leg">
-                    <span className="leg-line" style={{ borderColor: "#94a3b8" }} />
-                    건물
-                  </span>
-                </span>
+                <AllocTrendLegend />
               </div>
               <div className="detail-trend-wrap">
                 <canvas id="detailAllocTrend" />
@@ -247,20 +252,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="panel detail-trend-panel">
               <div className="detail-trend-hd">
                 <span className="detail-trend-title">월별 배부액 추이 (왜곡 수정ver)</span>
-                <span className="legend">
-                  <span className="leg">
-                    <span className="leg-line" style={{ borderColor: "#1e3a8a" }} />
-                    STB
-                  </span>
-                  <span className="leg">
-                    <span className="leg-line" style={{ borderColor: "#3b82f6" }} />
-                    HUMAX(공통)
-                  </span>
-                  <span className="leg">
-                    <span className="leg-line" style={{ borderColor: "#94a3b8" }} />
-                    건물
-                  </span>
-                </span>
+                <AllocTrendLegend />
               </div>
               <div className="detail-trend-wrap">
                 <canvas id="detailAllocTrendAdj" />

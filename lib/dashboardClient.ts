@@ -11,11 +11,15 @@ import type {
   FeeOrgRow,
   EvcsBlock,
 } from "./types";
+import { ALLOC_TREND_ADJUSTMENTS } from "./trendAdjustments";
 import {
-  ALLOC_TREND_ADJUSTMENTS,
+  ALLOC_DONUT_LABELS,
+  ALLOC_DONUT_COLORS,
   ALLOC_SERIES_LABEL,
+  ALLOC_SERIES_COLOR,
+  ALLOC_TREND_SERIES,
   type AllocSeriesKey,
-} from "./trendAdjustments";
+} from "./allocPalette";
 
 Chart.register(...registerables);
 
@@ -541,12 +545,6 @@ export function initDashboard(data: DashboardData): () => void {
     return new Chart(canvas, config);
   }
 
-  /**
-   * Summary 시트 도넛 팔레트 — 배부 항목 6개 순서(STB/MOBILITY/EVCS국내/EVCS해외/HUMAX공통/건물)에 맞춘다.
-   * 파랑 명도만 6단계로 나누면 인접 조각이 서로 구분되지 않아, 파랑을 기본 축으로 두되
-   * 조각끼리는 색상(hue)까지 벌려 구분한다 — 보고서에서는 색이 예쁜 것보다 구분되는 게 우선이다.
-   */
-  const ALLOC_DONUT_COLORS = ["#1e3a8a", "#7c3aed", "#2563eb", "#38bdf8", "#0d9488", "#f59e0b"];
   /** 조각 위 비중(%) 글자색 — 밝은 조각에 흰 글씨를 쓰면 안 보이므로 밝기에 따라 흰색/남색을 고른다. */
   function pctTextColor(hex: string): string {
     const n = parseInt(hex.slice(1), 16);
@@ -1355,7 +1353,6 @@ export function initDashboard(data: DashboardData): () => void {
     return board.slice(corpIdx + 1, totalIdx).filter((r) => r.level === 1);
   }
 
-  const ALLOC_DONUT_LABELS = ["STB", "MOBILITY", "EVCS(국내)", "EVCS(해외)", "HUMAX(공통)", "건물"];
   function allocDonutValues(board: AllocationRow[]): number[] {
     const t = board.find((r) => r.label === "Total");
     if (!t) return [0, 0, 0, 0, 0, 0];
@@ -1436,12 +1433,10 @@ export function initDashboard(data: DashboardData): () => void {
     // 실제 흐름이 맞는지 Summary보다 먼저(우측 최상단에서) 확인할 수 있게 한다.
     const pickAlloc = (m: string, f: AllocSeriesKey) =>
       data.byMonth[m].allocationBoard.actual.find((r) => r.label === "Total")?.[f] || 0;
-    const ALLOC_SERIES: { key: AllocSeriesKey; color: string }[] = [
-      { key: "stb", color: "#1e3a8a" },
-      { key: "humaxCommon", color: "#3b82f6" },
-      { key: "building", color: "#94a3b8" },
-    ];
-    const allocDataset = (key: AllocSeriesKey, color: string, values: number[], emphasized: number[] = []) => ({
+    // 선 색은 Humax합계의 구성비 도넛과 같은 팔레트를 쓴다 (같은 배부 항목이 시트마다 달라 보이지 않게).
+    const allocDataset = (key: AllocSeriesKey, values: number[], emphasized: number[] = []) => {
+      const color = ALLOC_SERIES_COLOR[key];
+      return {
       label: ALLOC_SERIES_LABEL[key],
       data: values,
       borderColor: color,
@@ -1452,13 +1447,14 @@ export function initDashboard(data: DashboardData): () => void {
       pointBackgroundColor: values.map((_, i) => (emphasized.includes(i) ? "#ffffff" : color)),
       pointBorderWidth: values.map((_, i) => (emphasized.includes(i) ? 2 : 1)),
       borderWidth: 2,
-    });
+      };
+    };
 
     queueChart("sum-detail", "detailAllocTrend", () =>
       lineChartMulti(
         "detailAllocTrend",
         months,
-        ALLOC_SERIES.map(({ key, color }) => allocDataset(key, color, months.map((m) => pickAlloc(m, key))))
+        ALLOC_TREND_SERIES.map((key) => allocDataset(key, months.map((m) => pickAlloc(m, key))))
       )
     );
 
@@ -1484,10 +1480,9 @@ export function initDashboard(data: DashboardData): () => void {
       return lineChartMulti(
         "detailAllocTrendAdj",
         months,
-        ALLOC_SERIES.map(({ key, color }) =>
+        ALLOC_TREND_SERIES.map((key) =>
           allocDataset(
             key,
-            color,
             months.map((m) => pickAlloc(m, key) + deltaOf(key, m)),
             months.map((m, i) => (deltaOf(key, m) !== 0 ? i : -1)).filter((i) => i >= 0)
           )
