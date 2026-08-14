@@ -242,16 +242,30 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               </div>
             </div>
 
-            {/* 왜곡 수정 기준(무엇을 어떻게 보정할지)이 아직 정해지지 않아, 자리만 잡아두고 기준 확정 시
-                위 차트와 같은 형태로 채운다. 임의 보정값을 그리면 보고 수치로 오해될 수 있어 비워둔다. */}
+            {/* 회계 처리 시기 오류로 튄 월을 되돌린 추이. 보정 내역은 lib/trendAdjustments.ts에
+                선언해두고, 차트와 하단 설명이 같은 값을 쓰도록 한다. */}
             <div className="panel detail-trend-panel">
               <div className="detail-trend-hd">
                 <span className="detail-trend-title">월별 배부액 추이 (왜곡 수정ver)</span>
-                <span className="detail-trend-tag">준비 중</span>
+                <span className="legend">
+                  <span className="leg">
+                    <span className="leg-line" style={{ borderColor: "#1e3a8a" }} />
+                    STB
+                  </span>
+                  <span className="leg">
+                    <span className="leg-line" style={{ borderColor: "#3b82f6" }} />
+                    HUMAX(공통)
+                  </span>
+                  <span className="leg">
+                    <span className="leg-line" style={{ borderColor: "#94a3b8" }} />
+                    건물
+                  </span>
+                </span>
               </div>
-              <div className="detail-trend-wrap detail-trend-placeholder">
-                <span>보정 기준 확정 후 표시 예정</span>
+              <div className="detail-trend-wrap">
+                <canvas id="detailAllocTrendAdj" />
               </div>
+              <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
             </div>
 
             <div className="summary-callout summary-callout-side" style={{ borderLeftColor: "#1d4ed8" }}>

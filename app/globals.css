@@ -153,8 +153,13 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .detail-trend-hd .leg{font-size:10.5px}
 .detail-trend-tag{font-size:10.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border:0.5px solid #e2e8f0;border-radius:20px;padding:2px 9px}
 .detail-trend-wrap{position:relative;height:230px}
-/* 왜곡 수정ver 자리 — 보정 기준이 정해지기 전까지 빈 칸임을 분명히 보여준다 */
-.detail-trend-placeholder{display:flex;align-items:center;justify-content:center;border:1px dashed #cbd5e1;border-radius:10px;background:#fafafa;color:#94a3b8;font-size:12px}
+/* 왜곡 수정ver 하단의 보정 내역 — 보정된 그림을 원장 수치로 오해하지 않도록 근거를 함께 둔다 */
+.detail-trend-note{margin-top:9px;padding-top:8px;border-top:0.5px solid #eef2f7;font-size:11px;line-height:1.5;color:#64748b}
+.detail-trend-note:empty{display:none}
+.detail-trend-note-hd{font-weight:700;color:#475569;margin-bottom:4px}
+.detail-trend-note-hd span{font-weight:400;color:#94a3b8}
+.detail-trend-note-item{margin-top:3px}
+.detail-trend-note-item b{color:#1e3a8a;font-weight:700}
 
 .sum-tbl{width:auto;table-layout:fixed}
 /* 상세 시트의 표는 좁혀서(열 너비 축소) 우측 추이 그래프에 폭을 넘긴다.
@@ -326,9 +331,12 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-sum-detail .sum-tbl col:first-child{width:96px!important}
   #tab-sum-detail .summary-comment-list{font-size:10.5px;line-height:1.35}
   #tab-sum-detail .summary-comment-list li{gap:6px}
-  /* 그래프가 2개로 늘어 한 페이지에 들어가도록 각각의 높이를 줄인다 (Summary는 2줄로 짧아졌다). */
+  /* 우측 칸에 그래프 2개 + 보정 내역 + Summary가 모두 들어가야 하므로 각 요소 높이를 줄인다. */
   .detail-trend-panel{padding:8px 10px}
   .detail-trend-hd{margin-bottom:4px}
-  .detail-trend-wrap{height:120px}
+  .detail-trend-wrap{height:100px}
   .detail-trend-title{font-size:11.5px}
+  .detail-trend-note{margin-top:4px;padding-top:4px;font-size:8.5px;line-height:1.28}
+  .detail-trend-note-hd{margin-bottom:1px}
+  .detail-trend-note-item{margin-top:1px}
 }

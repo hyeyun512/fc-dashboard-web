@@ -11,6 +11,11 @@ import type {
   FeeOrgRow,
   EvcsBlock,
 } from "./types";
+import {
+  ALLOC_TREND_ADJUSTMENTS,
+  ALLOC_SERIES_LABEL,
+  type AllocSeriesKey,
+} from "./trendAdjustments";
 
 Chart.register(...registerables);
 
@@ -1429,15 +1434,81 @@ export function initDashboard(data: DashboardData): () => void {
 
     // 배부 항목별 월별 추이 — 각 항목의 "정상 방향"(STB 소멸 / 공통 감소 / 건물 계단식 감소)과
     // 실제 흐름이 맞는지 Summary보다 먼저(우측 최상단에서) 확인할 수 있게 한다.
-    queueChart("sum-detail", "detailAllocTrend", () => {
-      const pick = (m: string, f: "stb" | "humaxCommon" | "building") =>
-        data.byMonth[m].allocationBoard.actual.find((r) => r.label === "Total")?.[f] || 0;
-      return lineChartMulti("detailAllocTrend", months, [
-        { label: "STB", data: months.map((m) => pick(m, "stb")), borderColor: "#1e3a8a", backgroundColor: "#1e3a8a", tension: 0.3, pointRadius: 2.5, borderWidth: 2 },
-        { label: "HUMAX(공통)", data: months.map((m) => pick(m, "humaxCommon")), borderColor: "#3b82f6", backgroundColor: "#3b82f6", tension: 0.3, pointRadius: 2.5, borderWidth: 2 },
-        { label: "건물", data: months.map((m) => pick(m, "building")), borderColor: "#94a3b8", backgroundColor: "#94a3b8", tension: 0.3, pointRadius: 2.5, borderWidth: 2 },
-      ]);
+    const pickAlloc = (m: string, f: AllocSeriesKey) =>
+      data.byMonth[m].allocationBoard.actual.find((r) => r.label === "Total")?.[f] || 0;
+    const ALLOC_SERIES: { key: AllocSeriesKey; color: string }[] = [
+      { key: "stb", color: "#1e3a8a" },
+      { key: "humaxCommon", color: "#3b82f6" },
+      { key: "building", color: "#94a3b8" },
+    ];
+    const allocDataset = (key: AllocSeriesKey, color: string, values: number[], emphasized: number[] = []) => ({
+      label: ALLOC_SERIES_LABEL[key],
+      data: values,
+      borderColor: color,
+      backgroundColor: color,
+      tension: 0.3,
+      // 보정한 월만 점을 키우고 속을 비워, 어느 지점이 옮겨졌는지 그래프에서 바로 보이게 한다.
+      pointRadius: values.map((_, i) => (emphasized.includes(i) ? 4.5 : 2.5)),
+      pointBackgroundColor: values.map((_, i) => (emphasized.includes(i) ? "#ffffff" : color)),
+      pointBorderWidth: values.map((_, i) => (emphasized.includes(i) ? 2 : 1)),
+      borderWidth: 2,
     });
+
+    queueChart("sum-detail", "detailAllocTrend", () =>
+      lineChartMulti(
+        "detailAllocTrend",
+        months,
+        ALLOC_SERIES.map(({ key, color }) => allocDataset(key, color, months.map((m) => pickAlloc(m, key))))
+      )
+    );
+
+    // 왜곡 수정ver — 원장 값은 그대로 두고, 회계 처리 시기 오류만 되돌려 추세를 읽을 수 있게 한다.
+    // 보정 대상 월이 조회 구간(months)에 없으면 그 건은 적용하지 않는다 (아직 안 지난 달 등).
+    const appliedAdj = ALLOC_TREND_ADJUSTMENTS.filter((adj) => {
+      const sum = adj.deltas.reduce((s, d) => s + d.amountMillion, 0);
+      if (sum !== 0) {
+        // 월 사이 이동이 아니라 총액을 바꾸는 보정은 보고 수치를 왜곡하므로 적용하지 않는다.
+        console.warn("보정 합계가 0이 아니라 건너뜁니다:", adj.label, sum);
+        return false;
+      }
+      return adj.deltas.every((d) => months.includes(d.month));
+    });
+
+    queueChart("sum-detail", "detailAllocTrendAdj", () => {
+      const deltaOf = (key: AllocSeriesKey, month: string) =>
+        appliedAdj
+          .filter((adj) => adj.series === key)
+          .flatMap((adj) => adj.deltas)
+          .filter((d) => d.month === month)
+          .reduce((s, d) => s + d.amountMillion * 1e6, 0);
+      return lineChartMulti(
+        "detailAllocTrendAdj",
+        months,
+        ALLOC_SERIES.map(({ key, color }) =>
+          allocDataset(
+            key,
+            color,
+            months.map((m) => pickAlloc(m, key) + deltaOf(key, m)),
+            months.map((m, i) => (deltaOf(key, m) !== 0 ? i : -1)).filter((i) => i >= 0)
+          )
+        )
+      );
+    });
+
+    // 그래프 아래에 "무엇을 어떻게 되돌렸는지"를 밝힌다 — 보정된 그림만 보고 원장 수치로 오해하면 안 된다.
+    const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`);
+    setHtml(
+      "detailAllocTrendAdjNote",
+      appliedAdj.length === 0
+        ? ""
+        : `<div class="detail-trend-note-hd">보정 내역 <span>원장 수치는 그대로이며, 아래 항목만 발생 시점으로 되돌려 그린 그래프입니다.</span></div>` +
+            appliedAdj
+              .map((adj) => {
+                const moves = adj.deltas.map((d) => `${d.month} ${signed(d.amountMillion)}`).join(" / ");
+                return `<div class="detail-trend-note-item"><b>${ALLOC_SERIES_LABEL[adj.series]} · ${adj.label}</b> ${moves} (백만원)<br/>${adj.reason}</div>`;
+              })
+              .join("")
+    );
 
     // '기타'로 묶은 법인이 무엇인지 표 아래 각주로 밝힌다.
     const hasMinor = corpCompanyRows(board).some((r) => MINOR_CORPS.includes(r.label));
