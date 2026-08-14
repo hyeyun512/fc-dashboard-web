@@ -1,13 +1,13 @@
 /**
- * Summary① ~ ③ 탭의 [Summary] 코멘트 — 화면에서 직접 고치는 방식이 아니라, 보고 시점마다
- * 텍스트를 받아 이 파일을 수정해 배포하는 방식으로 관리한다 (경영진 보고용 고정 텍스트).
- * 아래 내용은 실제 데이터 확정 전 임의로 채운 샘플 문구다.
+ * Summary① ~ ③ 탭의 [Summary] 코멘트 (경영진 보고용 고정 텍스트).
+ *
+ * ⚠️ 이 파일은 프로젝트 루트의 "코멘트 작성용.xlsx"에서 자동 생성됩니다. 직접 고치지 마세요.
+ *    문구를 바꾸려면 엑셀을 수정한 뒤 `npm run sync:comments`를 실행합니다.
  */
 export type SummaryCommentKey =
   | "humax_total_month"
   | "humax_total_cum"
-  | "evcs"
-  | "humax_detail";
+  | "evcs";
 
 /**
  * Humax합계_상세의 Summary — 배부 항목별로 나눠서 관리한다.
@@ -29,6 +29,7 @@ export const SUMMARY_DETAIL_GROUPS: SummaryCommentGroup[] = [
     lines: [
       "누계 실적 2,916 / 예산 3,252, 집행률 90%(-336)로 예산에 미달합니다.",
       "Media그룹 -454(외주개발용역비 -526)가 주원인이며, 월 배부액은 400~570에서 등락해 아직 감소 추세는 아닙니다.",
+      "4월, 5월 트렌드 왜곡: STB License Fee/Nagra 84백만 4월 기표 후 5월 reverse (선급비용 조정 시기 오류)",
     ],
   },
   {
@@ -62,10 +63,5 @@ export const SUMMARY_COMMENTS: Record<SummaryCommentKey, string[]> = {
     "EVCS(국내) 배부 비용은 축소 기조에 맞춰 매월 감소 여부를 점검하고 있습니다.",
     "EVCS(해외)는 연간 예산 대비 누계 집행률로 진척도를 관리하고 있습니다.",
     "비용 규모는 인건비 비중이 가장 크며, 인력 운영 계획에 따라 변동됩니다.",
-  ],
-  humax_detail: [
-    "본사 비용은 인건비·지급수수료 중심으로 집행되고 있습니다.",
-    "법인은 HUK, HBR의 배부 비중이 상대적으로 높습니다.",
-    "HTR/HDG/HAU는 비중이 미미하여 한 행으로 묶어 관리합니다.",
   ],
 };
