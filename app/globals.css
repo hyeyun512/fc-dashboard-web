@@ -128,6 +128,8 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .section-lead .sub{font-weight:400;color:#94a3b8;font-size:12px;margin-left:6px}
 
 .summary-callout{background:#fafaf9;border:0.5px solid #eeede9;border-left:3px solid;border-radius:10px;padding:16px 20px;margin-bottom:16px}
+/* 그 달 Summary 문구가 없으면 박스 자체를 감춘다 (빈 테두리만 남으면 오류처럼 보인다) */
+.summary-callout:empty{display:none}
 .summary-callout-title{font-size:11px;font-weight:800;letter-spacing:1.2px;text-transform:uppercase;margin-bottom:10px}
 .summary-comment-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 24px;font-size:13px;line-height:1.55;color:#374151}
 .summary-comment-list li{display:flex;align-items:flex-start;gap:8px;margin:0}

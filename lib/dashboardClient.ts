@@ -12,7 +12,12 @@ import type {
   EvcsBlock,
 } from "./types";
 import { ALLOC_TREND_ADJUSTMENTS } from "./trendAdjustments";
-import { SUMMARY_TREND_NOTE } from "./summaryComments";
+import {
+  SUMMARY_TREND_NOTE,
+  SUMMARY_COMMENTS,
+  SUMMARY_DETAIL_GROUPS,
+  type SummaryCommentKey,
+} from "./summaryComments";
 import {
   ALLOC_DONUT_LABELS,
   ALLOC_DONUT_COLORS,
@@ -1360,6 +1365,44 @@ export function initDashboard(data: DashboardData): () => void {
     return [t.stb, t.mobility, t.evcsDomestic, t.evcsOverseas, t.humaxCommon, t.building];
   }
 
+  // ================= Summary 박스 =================
+  // 표와 같은 기간을 말해야 하므로, 문구도 상단 '보고 월'을 따라간다 (월별로 따로 작성된다).
+  // 그 달 문구가 없으면 빈 문자열을 넣고, CSS의 :empty 규칙이 박스째 숨긴다.
+  const SUMMARY_ACCENT = "#1d4ed8";
+  const summaryTitleHtml = `<div class="summary-callout-title" style="color:${SUMMARY_ACCENT}">Summary</div>`;
+  function commentListHtml(lines: string[]): string {
+    return (
+      `<ul class="summary-comment-list">` +
+      lines
+        .map((l) => `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${l}</li>`)
+        .join("") +
+      `</ul>`
+    );
+  }
+  /** Summary①·② 박스. */
+  function renderSummaryBox(elId: string, key: SummaryCommentKey) {
+    const lines = SUMMARY_COMMENTS[currentMonth]?.[key];
+    setHtml(elId, lines && lines.length ? summaryTitleHtml + commentListHtml(lines) : "");
+  }
+  /** Summary③ 박스 — 배부 항목(STB/HUMAX(공통)/건물)별 소제목으로 나눠 보여준다. */
+  function renderSummaryDetailBox(elId: string) {
+    const groups = SUMMARY_DETAIL_GROUPS[currentMonth];
+    setHtml(
+      elId,
+      groups && groups.length
+        ? summaryTitleHtml +
+            groups
+              .map(
+                (g) =>
+                  `<div class="summary-group"><div class="summary-group-label">${g.label}</div>` +
+                  commentListHtml(g.lines) +
+                  `</div>`
+              )
+              .join("")
+        : ""
+    );
+  }
+
   function renderSumTotal() {
     const m = data.byMonth[currentMonth];
     const cum = m.cumulative;
@@ -1370,6 +1413,8 @@ export function initDashboard(data: DashboardData): () => void {
     setText("sumTotalCumSub", `${months[0]}~${currentMonth} · 백만원`);
     setHtml("sumTotalMonthTable", allocTotalTable(m.allocationBoard.actual));
     setHtml("sumTotalCumTable", allocTotalTable(cum.allocationBoard.actual));
+    renderSummaryBox("sumTotalMonthComment", "humax_total_month");
+    renderSummaryBox("sumTotalCumComment", "humax_total_cum");
 
     // 표의 합계 행을 배부 항목별 구성비 도넛으로 시각화 (비중은 조각 위, 금액은 우측 범례).
     const monthVals = allocDonutValues(m.allocationBoard.actual);
@@ -1511,6 +1556,8 @@ export function initDashboard(data: DashboardData): () => void {
       : "";
     setHtml("detailAllocTrendAdjNote", adjNoteHtml + trendNoteHtml);
 
+    renderSummaryDetailBox("sumDetailComment");
+
     // '기타'로 묶은 법인이 무엇인지 표 아래 각주로 밝힌다.
     const hasMinor = corpCompanyRows(board).some((r) => MINOR_CORPS.includes(r.label));
     // 본사 구분에도 '기타'가 있으므로 "법인의 기타"로 명확히 적는다.
@@ -1587,6 +1634,7 @@ export function initDashboard(data: DashboardData): () => void {
 
     setText("evcsSplitSub", `EVCS 배부금액 · 백만원 · 누계 집행률 = 누계 실적 ÷ 연간 예산`);
     setHtml("evcsSplitTable", evcsSplitTableBody(monthE, cumE));
+    renderSummaryBox("evcsComment", "evcs");
 
     // 구분별 금액 규모 — 누계 실적 기준 구성비 도넛, 본사/법인 각각.
     setText("sumEvcsSub", `${data.byMonth[currentMonth].cumulative.label} 실적 기준 · 백만원`);

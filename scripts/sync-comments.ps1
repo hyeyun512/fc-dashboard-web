@@ -125,11 +125,18 @@ function Split-Lines([string]$text) {
   )
 }
 
-$boxes = @{}                                              # key → string[]
-$detailGroups = New-Object System.Collections.Generic.List[object]  # 시트에 적힌 순서 유지
-$detailPeriod = ""                                        # 상세 Summary가 어느 기간 기준인지 (B열)
-$trendNote = @()                                          # '왜곡 수정ver' 그래프 하단 '참고' 블록
+# 화면 상단 '보고 월'에 따라 Summary가 바뀌므로, 모든 내용을 월(B열)별로 나눠 담는다.
+$boxesByMonth = @{}                                       # "6월" → @{ key = string[] }
+$detailByMonth = @{}                                      # "6월" → List(구분, 줄들) — 시트 순서 유지
+$trendNote = @()                                          # '왜곡 수정ver' 그래프 하단 '참고' (월 무관)
 $seenRows = 0
+
+# 기간 표기에서 월만 뽑는다 — "6월" / "6월 누계" 모두 "6월"이 된다.
+function Month-Of([string]$period) {
+  $m = [regex]::Match($period, '([0-9]+)\s*월')
+  if ($m.Success) { return $m.Groups[1].Value + "월" }
+  return ""
+}
 
 foreach ($entry in $rows) {
   if ($entry.Num -eq 1) { continue }                      # 헤더
@@ -145,21 +152,31 @@ foreach ($entry in $rows) {
   $seenRows++
 
   $tabKey = Normalize $tab
+  $isTrendNote = ($tabKey -like "*상세*") -and ((Normalize $group) -like "*추이*")
+
+  # '참고' 행만 월이 없어도 된다 (추이 그래프는 전체 기간을 그리므로).
+  $month = Month-Of $period
+  if (-not $month -and -not $isTrendNote) {
+    throw "행 ${rowNum}: 기간(B열)에 월이 없습니다. '6월' 또는 '6월 누계'처럼 적어 주세요."
+  }
+  if ($month -and -not $boxesByMonth.ContainsKey($month)) {
+    $boxesByMonth[$month] = @{}
+    $detailByMonth[$month] = New-Object System.Collections.Generic.List[object]
+  }
+
   if ($tabKey -like "*상세*") {
     if (-not $group) { throw "행 ${rowNum}: 'Humax합계_상세'는 구분(C열)이 비어 있으면 안 됩니다." }
-    # 구분에 '추이'가 들어간 행은 Summary 박스가 아니라 '왜곡 수정ver' 그래프 하단 노트로 보낸다.
-    if ((Normalize $group) -like "*추이*") {
+    if ($isTrendNote) {
       if ($trendNote.Count -gt 0) { throw "행 ${rowNum}: '월별 배부액 추이' 행이 두 번 나옵니다. 한 행에 모아 주세요." }
       $trendNote = $lines
     } else {
-      $detailGroups.Add([pscustomobject]@{ Label = $group; Lines = $lines })
-      if (-not $detailPeriod) { $detailPeriod = $period }
+      $detailByMonth[$month].Add([pscustomobject]@{ Label = $group; Lines = $lines })
     }
   } elseif ($tabKey -like "*evcs*") {
-    $boxes["evcs"] = $lines
+    $boxesByMonth[$month]["evcs"] = $lines
   } elseif ($tabKey -like "*humax*") {
-    if ($period -like "*누계*") { $boxes["humax_total_cum"] = $lines }
-    else { $boxes["humax_total_month"] = $lines }
+    if ($period -like "*누계*") { $boxesByMonth[$month]["humax_total_cum"] = $lines }
+    else { $boxesByMonth[$month]["humax_total_month"] = $lines }
   } else {
     throw "행 ${rowNum}: 알 수 없는 탭 이름 '$tab' (Humax합계 / EVCS사업부 / Humax합계_상세 중 하나여야 합니다)"
   }
@@ -167,10 +184,17 @@ foreach ($entry in $rows) {
 
 if ($seenRows -eq 0) { throw "엑셀에서 읽어온 Summary가 한 줄도 없습니다. 시트 형식을 확인해 주세요." }
 
-foreach ($required in @("humax_total_month", "humax_total_cum", "evcs")) {
-  if (-not $boxes.ContainsKey($required)) { throw "필수 Summary 박스가 비어 있습니다: $required" }
+# 월 오름차순 — 생성 파일을 읽을 때 순서가 뒤섞이지 않게 한다.
+$months = @($boxesByMonth.Keys | Sort-Object { [int]($_ -replace '[^0-9]', '') })
+
+# 어떤 달을 반쯤 적어두면 화면에서 일부 박스만 나와 이상해 보이므로, 그 달은 통째로 비워야 한다.
+foreach ($mo in $months) {
+  $have = @("humax_total_month", "humax_total_cum", "evcs") | Where-Object { $boxesByMonth[$mo].ContainsKey($_) }
+  $missing = @("humax_total_month", "humax_total_cum", "evcs") | Where-Object { -not $boxesByMonth[$mo].ContainsKey($_) }
+  if ($missing.Count -gt 0 -and $have.Count -gt 0) {
+    throw "$mo : Summary 박스가 일부만 적혀 있습니다 (빠진 것: $($missing -join ', ')). 그 달은 전부 적거나 전부 비워 주세요."
+  }
 }
-if ($detailGroups.Count -eq 0) { throw "필수 Summary 박스가 비어 있습니다: Humax합계_상세" }
 
 function Escape-TS([string]$s) {
   return $s.Replace("\", "\\").Replace('"', '\"')
@@ -184,6 +208,9 @@ W ' * Summary① ~ ③ 탭의 [Summary] 박스 문구 (경영진 보고용 고�
 W ' *'
 W ' * ⚠️ 이 파일은 프로젝트 루트의 "Summary 작성용.xlsx"에서 자동 생성됩니다. 직접 고치지 마세요.'
 W ' *    문구를 바꾸려면 엑셀을 수정한 뒤 `npm run sync:comments`를 실행합니다.'
+W ' *'
+W ' * 화면 상단 "보고 월"에 따라 표와 함께 문구도 바뀌어야 하므로 월별로 나눠 담는다.'
+W ' * 문구가 없는 달은 키 자체가 없고, 그 달에는 Summary 박스를 표시하지 않는다.'
 W ' */'
 W 'export type SummaryCommentKey ='
 W '  | "humax_total_month"'
@@ -200,23 +227,25 @@ W ' */'
 W 'export type SummaryCommentGroup = { label: string; lines: string[] };'
 W ''
 W '/**'
-if ($detailPeriod) {
-  # 블록 주석 안에 들어가므로 주석 종료 기호만 막아준다.
-  W (" * 아래 수치는 26년 " + ($detailPeriod -replace "\*/", "") + " 실적/예산 기준으로 분석한 결과다 (단위: 백만원).")
-}
-W ' * 판단 기준 — 누계 예산 대비 차이가 1억원 이상인 조직·계정만 기재하고, 항목당 2줄로 줄인다'
+W ' * 월("6월") → 배부 항목별 Summary. 수치는 그 달의 누계 실적/예산 기준이다 (단위: 백만원).'
+W ' * 판단 기준 — 누계 예산 대비 차이가 1억원 이상인 조직·계정만 기재하고, 항목당 2~3줄로 줄인다'
 W ' * (첫 줄: 누계 집행률, 둘째 줄: 그 차이를 만든 원인). 매월 실적이 갱신되면 같은 기준으로 다시 뽑아 교체한다.'
 W ' */'
-W 'export const SUMMARY_DETAIL_GROUPS: SummaryCommentGroup[] = ['
-foreach ($g in $detailGroups) {
-  W '  {'
-  W ("    label: `"" + (Escape-TS $g.Label) + "`",")
-  W '    lines: ['
-  foreach ($line in $g.Lines) { W ("      `"" + (Escape-TS $line) + "`",") }
-  W '    ],'
-  W '  },'
+W 'export const SUMMARY_DETAIL_GROUPS: Record<string, SummaryCommentGroup[]> = {'
+foreach ($mo in $months) {
+  if ($detailByMonth[$mo].Count -eq 0) { continue }
+  W ("  `"" + (Escape-TS $mo) + "`": [")
+  foreach ($g in $detailByMonth[$mo]) {
+    W '    {'
+    W ("      label: `"" + (Escape-TS $g.Label) + "`",")
+    W '      lines: ['
+    foreach ($line in $g.Lines) { W ("        `"" + (Escape-TS $line) + "`",") }
+    W '      ],'
+    W '    },'
+  }
+  W '  ],'
 }
-W '];'
+W '};'
 W ''
 W '/**'
 W " * '월별 배부액 추이 (왜곡 수정ver)' 그래프 하단 '참고' 블록."
@@ -230,11 +259,18 @@ W 'export const SUMMARY_TREND_NOTE: string[] = ['
 foreach ($line in $trendNote) { W ("  `"" + (Escape-TS $line) + "`",") }
 W '];'
 W ''
-W 'export const SUMMARY_COMMENTS: Record<SummaryCommentKey, string[]> = {'
-foreach ($key in @("humax_total_month", "humax_total_cum", "evcs")) {
-  W ("  " + $key + ": [")
-  foreach ($line in $boxes[$key]) { W ("    `"" + (Escape-TS $line) + "`",") }
-  W '  ],'
+W '/** 월("6월") → Summary①·② 박스 문구. */'
+W 'export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, string[]>>> = {'
+foreach ($mo in $months) {
+  if ($boxesByMonth[$mo].Count -eq 0) { continue }
+  W ("  `"" + (Escape-TS $mo) + "`": {")
+  foreach ($key in @("humax_total_month", "humax_total_cum", "evcs")) {
+    if (-not $boxesByMonth[$mo].ContainsKey($key)) { continue }
+    W ("    " + $key + ": [")
+    foreach ($line in $boxesByMonth[$mo][$key]) { W ("      `"" + (Escape-TS $line) + "`",") }
+    W '    ],'
+  }
+  W '  },'
 }
 W '};'
 
@@ -245,10 +281,12 @@ $text = $sb.ToString() -replace "`r`n", "`n"
 [System.IO.File]::WriteAllText($Out, $text, (New-Object System.Text.UTF8Encoding($false)))
 
 Write-Host "동기화 완료 → $Out"
-Write-Host ("  Humax합계(당월)     : {0}줄" -f $boxes["humax_total_month"].Count)
-Write-Host ("  Humax합계(누계)     : {0}줄" -f $boxes["humax_total_cum"].Count)
-Write-Host ("  EVCS사업부          : {0}줄" -f $boxes["evcs"].Count)
-foreach ($g in $detailGroups) {
-  Write-Host ("  Humax합계_상세 / {0} : {1}줄" -f $g.Label, $g.Lines.Count)
+foreach ($mo in $months) {
+  $b = $boxesByMonth[$mo]
+  $parts = @("humax_total_month", "humax_total_cum", "evcs") |
+    ForEach-Object { if ($b.ContainsKey($_)) { "{0} {1}줄" -f $_, $b[$_].Count } }
+  $det = ($detailByMonth[$mo] | ForEach-Object { "{0} {1}줄" -f $_.Label, $_.Lines.Count }) -join ", "
+  Write-Host ("  [{0}] {1}" -f $mo, ($parts -join ", "))
+  if ($det) { Write-Host ("        상세: {0}" -f $det) }
 }
-Write-Host ("  월별 배부액 추이(참고) : {0}줄" -f $trendNote.Count)
+Write-Host ("  월별 배부액 추이(참고) : {0}줄 (월 무관)" -f $trendNote.Count)

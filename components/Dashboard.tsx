@@ -3,7 +3,6 @@
 import { useEffect, useRef } from "react";
 import type { DashboardData } from "@/lib/types";
 import { initDashboard } from "@/lib/dashboardClient";
-import { SUMMARY_COMMENTS, SUMMARY_DETAIL_GROUPS, type SummaryCommentKey } from "@/lib/summaryComments";
 import { ALLOC_SERIES_LABEL, ALLOC_SERIES_COLOR, ALLOC_TREND_SERIES } from "@/lib/allocPalette";
 
 /**
@@ -24,32 +23,17 @@ function AllocTrendLegend() {
 }
 
 /**
- * 경영진 보고용 고정 코멘트 — 화면에서 직접 고치지 않고, 텍스트를 받아 summaryComments.ts를 수정해 배포한다.
- * variant="side"는 표 우측에 세로로 붙는 형태, 기본값은 표 위에 가로로 펼치는 형태.
+ * 경영진 보고용 Summary 박스 — 내용은 상단 '보고 월'에 따라 달라지므로 여기서는 빈 껍데기만 두고,
+ * 월을 알고 있는 dashboardClient가 채운다. 문구가 없는 달에는 :empty 규칙으로 박스째 숨겨진다.
+ * 문구 자체는 화면에서 고치지 않고 "Summary 작성용.xlsx"를 고쳐 동기화한다.
  */
-function SummaryCommentBox({
-  boxKey,
-  accent,
-  variant,
-}: {
-  boxKey: SummaryCommentKey;
-  accent: string;
-  variant?: "side";
-}) {
+function SummaryCommentBox({ id, accent, variant }: { id: string; accent: string; variant?: "side" }) {
   return (
-    <div className={`summary-callout${variant === "side" ? " summary-callout-side" : ""}`} style={{ borderLeftColor: accent }}>
-      <div className="summary-callout-title" style={{ color: accent }}>
-        Summary
-      </div>
-      <ul className="summary-comment-list">
-        {SUMMARY_COMMENTS[boxKey].map((line, i) => (
-          <li key={i}>
-            <span className="summary-comment-dot" style={{ background: accent }} />
-            {line}
-          </li>
-        ))}
-      </ul>
-    </div>
+    <div
+      id={id}
+      className={`summary-callout${variant === "side" ? " summary-callout-side" : ""}`}
+      style={{ borderLeftColor: accent }}
+    />
   );
 }
 
@@ -152,7 +136,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               <ul className="donut-legend" id="sumTotalMonthDonutLegend" />
             </div>
           </div>
-          <SummaryCommentBox boxKey="humax_total_month" accent="#1d4ed8" variant="side" />
+          <SummaryCommentBox id="sumTotalMonthComment" accent="#1d4ed8" variant="side" />
         </div>
 
         <div className="sum-block">
@@ -172,7 +156,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               <ul className="donut-legend" id="sumTotalCumDonutLegend" />
             </div>
           </div>
-          <SummaryCommentBox boxKey="humax_total_cum" accent="#1d4ed8" variant="side" />
+          <SummaryCommentBox id="sumTotalCumComment" accent="#1d4ed8" variant="side" />
         </div>
       </div>
 
@@ -185,7 +169,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="sheet-title">EVCS사업부</div>
           </div>
         </div>
-        <SummaryCommentBox boxKey="evcs" accent="#1d4ed8" />
+        <SummaryCommentBox id="evcsComment" accent="#1d4ed8" />
 
         <div className="evcs-top">
           <div className="evcs-top-left">
@@ -261,24 +245,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
             </div>
 
-            <div className="summary-callout summary-callout-side" style={{ borderLeftColor: "#1d4ed8" }}>
-              <div className="summary-callout-title" style={{ color: "#1d4ed8" }}>
-                Summary
-              </div>
-              {SUMMARY_DETAIL_GROUPS.map((g) => (
-                <div className="summary-group" key={g.label}>
-                  <div className="summary-group-label">{g.label}</div>
-                  <ul className="summary-comment-list">
-                    {g.lines.map((line, i) => (
-                      <li key={i}>
-                        <span className="summary-comment-dot" style={{ background: "#1d4ed8" }} />
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))}
-            </div>
+            <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="side" />
           </div>
         </div>
       </div>
