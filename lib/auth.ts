@@ -9,8 +9,13 @@
  */
 export const AUTH_COOKIE = "fc_auth";
 
-/** 로그인 유지 기간. 보고 자료라 하루 안쪽으로 짧게 둔다. */
-export const AUTH_MAX_AGE = 60 * 60 * 12;
+/**
+ * 로그인 유지 기간 5분. 공용 PC에 자리를 뜬 뒤 링크가 그대로 열리는 일이 없도록 짧게 둔다.
+ *
+ * 보는 도중에 끊기지는 않는다 — 탭 전환·월 선택은 모두 브라우저 안에서 처리되어 서버를
+ * 다시 부르지 않기 때문이다. 새로고침하거나 링크를 다시 열 때만 암호를 다시 묻는다.
+ */
+export const AUTH_MAX_AGE = 60 * 5;
 
 /** Edge 런타임에도 있는 Web Crypto만 쓴다 (node:crypto는 미들웨어에서 못 쓴다). */
 export async function sha256Hex(text: string): Promise<string> {

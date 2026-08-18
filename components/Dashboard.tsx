@@ -87,13 +87,13 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
       <div className="tab-bar">
         <div className="tab tab-summary-lv active" data-tab="sum-total">
-          ① Humax합계
+          Humax합계
         </div>
         <div className="tab tab-summary-lv" data-tab="sum-evcs">
-          ② EVCS사업부
+          EVCS사업부
         </div>
         <div className="tab tab-summary-lv" data-tab="sum-detail">
-          ③ Humax합계_상세
+          Humax합계_상세
         </div>
         <div className="tab-sep" />
         <div className="tab tab-sub" data-tab="summary">
@@ -134,7 +134,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
-            <div className="sheet-eyebrow">Summary ①</div>
+            <div className="sheet-eyebrow">Summary</div>
             <div className="sheet-title">Humax합계</div>
           </div>
         </div>
@@ -184,7 +184,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
-            <div className="sheet-eyebrow">Summary ②</div>
+            <div className="sheet-eyebrow">Summary</div>
             <div className="sheet-title">EVCS사업부</div>
           </div>
         </div>
@@ -225,7 +225,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
-            <div className="sheet-eyebrow">Summary ③</div>
+            <div className="sheet-eyebrow">Summary</div>
             <div className="sheet-title">Humax합계_상세</div>
           </div>
         </div>
