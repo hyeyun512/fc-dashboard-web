@@ -1599,7 +1599,7 @@ export function initDashboard(data: DashboardData): () => void {
     const adjNoteHtml =
       appliedAdj.length === 0
         ? ""
-        : `<div class="detail-trend-note-hd">보정 내역 <span>원장 수치는 그대로이며, 아래 항목만 발생 시점으로 되돌려 그린 그래프입니다.</span></div>` +
+        : `<div class="detail-trend-note-hd">보정 내역 <span>원장 수치는 그대로 · 아래 항목만 발생 시점으로 되돌린 그래프</span></div>` +
           appliedAdj
             .map((adj) => {
               const moves = adj.deltas.map((d) => `${d.month} ${signed(d.amountMillion)}백만`).join(", ");
@@ -1607,7 +1607,7 @@ export function initDashboard(data: DashboardData): () => void {
             })
             .join("");
     const trendNoteHtml = SUMMARY_TREND_NOTE.length
-      ? `<div class="detail-trend-note-hd${adjNoteHtml ? " detail-trend-note-hd-2nd" : ""}">참고 <span>그래프에는 반영하지 않은 설명입니다.</span></div>` +
+      ? `<div class="detail-trend-note-hd${adjNoteHtml ? " detail-trend-note-hd-2nd" : ""}">참고 <span>그래프에 반영하지 않은 설명</span></div>` +
         SUMMARY_TREND_NOTE.map((line) => `<div class="detail-trend-note-item">${line}</div>`).join("")
       : "";
     setHtml("detailAllocTrendAdjNote", adjNoteHtml + trendNoteHtml);
