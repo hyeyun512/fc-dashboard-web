@@ -24,7 +24,7 @@ export type AllocTrendAdjustment = {
   label: string;
   /** 월별 증감 (단위: 백만원). 합계는 0이어야 한다. */
   deltas: { month: string; amountMillion: number }[];
-  /** 왜 이렇게 보정하는지 — 하단에 그대로 적힌다. */
+  /** 왜 이렇게 보정하는지 — 하단 보정 내역 줄 끝에 괄호로 붙는다. 문장이 아니라 단어형으로 적는다. */
   reason: string;
 };
 
@@ -36,7 +36,6 @@ export const ALLOC_TREND_ADJUSTMENTS: AllocTrendAdjustment[] = [
       { month: "4월", amountMillion: -84 },
       { month: "5월", amountMillion: 84 },
     ],
-    reason:
-      "선급비용 조정 시기 오류 — 84백만원을 4월에 기표한 뒤 5월에 reverse 하여, 4월은 과대 5월은 과소로 잡혔습니다.",
+    reason: "선급비용 결산 조정 지연",
   },
 ];
