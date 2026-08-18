@@ -339,7 +339,7 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
      넘겼다. 그래프 크기와 본문 글자 중 어느 하나만 깎지 않도록 양쪽을 조금씩 줄여 719px로 맞춘다. */
   .detail-trend-panel{padding:6px 10px}
   .detail-trend-hd{margin-bottom:4px}
-  .detail-trend-wrap{height:80px}
+  .detail-trend-wrap{height:76px}
   .detail-trend-title{font-size:11.5px}
   .detail-trend-note{margin-top:3px;padding-top:3px;font-size:8.5px;line-height:1.28}
   .detail-trend-note-hd{margin-bottom:1px}
