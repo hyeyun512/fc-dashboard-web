@@ -50,19 +50,45 @@ git push -u origin main
 ## Vercel 배포
 
 1. [vercel.com](https://vercel.com) 에서 방금 만든 GitHub 저장소를 Import 합니다 (New Project → Import Git Repository).
-2. **Environment Variables**에 아래 두 개를 추가합니다 (Production / Preview / Development 모두 체크 권장):
+2. **Environment Variables**에 아래 세 개를 추가합니다 (Production / Preview / Development 모두 체크 권장):
    - `SUPABASE_URL` = `https://acpfapffygogtdufssko.supabase.co`
    - `SUPABASE_SERVICE_ROLE_KEY` = (Supabase 대시보드에서 복사한 service_role 키)
+   - `DASHBOARD_PASSWORD` = (열람 암호 — 아래 "열람 암호" 참고. 없으면 아무도 열 수 없습니다)
 3. Deploy 클릭. 빌드가 끝나면 `https://<프로젝트명>.vercel.app` 형태의 URL이 생깁니다.
 4. 이후 Supabase에 새 월 실적을 업로드한 뒤 이 URL을 새로고침하면, 서버가 매 요청마다 최신 데이터를 다시 조회하므로 바로 반영됩니다.
 
-### 접근 권한
+### 열람 암호 (필수 설정)
 
-현재는 "링크를 아는 사람 누구나" 볼 수 있도록 별도 인증 없이 배포됩니다. 나중에 접근을 제한하고 싶어지면:
+대시보드는 **암호를 입력해야** 열립니다. Vercel 환경변수에 아래를 추가하세요 —
+**이 값을 넣지 않으면 아무도 열 수 없습니다.**
 
-- 가장 간단한 방법: Vercel 프로젝트 Settings → **Deployment Protection → Password Protection** (Vercel Pro 플랜 필요)
-- 또는 이메일 기반 제한: Vercel의 **Authentication** 기능 사용
-- 직접 구현: `middleware.ts`를 추가해 쿠키/헤더 기반 간단한 비밀번호 체크를 넣을 수 있습니다 (필요하시면 말씀해주세요, 이어서 만들어드리겠습니다).
+| 이름 | 값 |
+| --- | --- |
+| `DASHBOARD_PASSWORD` | 열람 암호 (별도 전달) |
+
+> ⚠️ 이 저장소는 **공개(public)** 라 암호를 코드나 README에 적으면 GitHub에서 그대로 보입니다.
+> 반드시 환경변수에만 두세요. 로컬 개발은 `.env.local`에 같은 이름으로 넣으면 됩니다(.gitignore 대상).
+
+동작 방식은 `middleware.ts`입니다. 화면단에서 가리는 방식이 아니라 **서버에서 막습니다** —
+이 대시보드는 Supabase에서 읽은 숫자를 서버에서 HTML로 그려 내려주므로, 화면만 가리면
+'페이지 소스 보기'에 실적이 그대로 남기 때문입니다. 실제로 암호 없이 받은 HTML은 5KB 남짓이고
+데이터가 한 건도 들어 있지 않습니다(암호 통과 후에는 3.5MB).
+
+- 암호가 맞으면 `fc_auth` 쿠키를 심고 12시간 유지합니다. 쿠키에는 암호가 아니라 해시를 담아,
+  쿠키를 봐도 암호를 알 수 없고 암호를 모르면 값을 만들 수도 없습니다.
+- 암호를 바꾸면 해시가 달라져 기존 쿠키는 자동으로 무효가 됩니다.
+
+암호 없이도 공개하고 싶어지면 `middleware.ts`를 지우면 됩니다.
+
+### 슬라이드 쇼
+
+보고 자리에서 탭을 슬라이드처럼 넘길 수 있습니다. 탭 바 아래 줄에서:
+
+- **◀ 이전 / 다음 ▶** 버튼과 **← → 방향키** (PageUp/PageDown도 됩니다)
+- **탭 선택** 드롭다운으로 원하는 탭 바로 이동 (현재 위치는 `3 / 7`처럼 표시)
+- **⛶ 슬라이드쇼** 버튼으로 전체화면 — 전체화면에서는 탭 줄을 감춰 내용에 화면을 내줍니다
+
+월 선택 같은 입력 요소에 커서가 있을 때는 방향키를 가로채지 않습니다. 인쇄에는 이 줄이 나오지 않습니다.
 
 ## 월별 실적 테이블 자동 탐색
 

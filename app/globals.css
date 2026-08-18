@@ -344,4 +344,43 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .detail-trend-note{margin-top:3px;padding-top:3px;font-size:8.5px;line-height:1.28}
   .detail-trend-note-hd{margin-bottom:1px}
   .detail-trend-note-item{margin-top:1px}
+  /* 슬라이드 이동 줄은 화면 조작용이라 인쇄물에는 남기지 않는다 */
+  .slidenav{display:none}
 }
+
+/* ---- 슬라이드 쇼 ----
+   탭 하나가 슬라이드 하나다. 보고 중에는 마우스로 탭을 짚기 어려우므로
+   좌우 버튼·키보드·탭 선택으로 넘길 수 있는 줄을 탭 바 아래에 둔다. */
+.slidenav{background:#fff;border-bottom:0.5px solid #e2e8f0;padding:8px 28px;display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.slidenav button{font-family:inherit;font-size:12.5px;font-weight:600;color:#374151;background:#fff;border:0.5px solid #cbd5e1;border-radius:8px;padding:5px 12px;cursor:pointer}
+.slidenav button:hover:not(:disabled){background:#f8fafc}
+/* 양 끝에서는 눌러도 반응이 없으므로, 왜 안 되는지 보이도록 죽여둔다 */
+.slidenav button:disabled{opacity:.4;cursor:default}
+.slidenav select{font-family:inherit;font-size:12.5px;font-weight:600;color:#1a202c;background:#fff;border:0.5px solid #cbd5e1;border-radius:8px;padding:5px 10px;cursor:pointer}
+.slidenav #slideCount{font-size:12.5px;font-weight:700;color:#1d4ed8;min-width:46px;text-align:center;font-variant-numeric:tabular-nums}
+.slidenav #fsBtn{background:#2563eb;color:#fff;border-color:#2563eb}
+.slidenav #fsBtn:hover{background:#1d4ed8}
+.slidenav .navlbl{font-size:12px;color:#64748b;font-weight:600}
+.slidenav .sep{width:0.5px;height:16px;background:#e2e8f0}
+.slidenav .hint{font-size:11.5px;color:#94a3b8}
+/* 전체화면 슬라이드쇼 — 탭 줄을 감춰 화면을 슬라이드에 내준다 (이동은 슬라이드 줄로 한다) */
+body.slideshow .tab-bar{display:none}
+body.slideshow .content{padding-top:16px}
+
+/* ---- 열람 암호 화면 ---- */
+.login-wrap{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+.login-card{background:#fff;border:0.5px solid #e2e8f0;border-radius:14px;padding:32px 34px;width:100%;max-width:420px;box-shadow:0 1px 3px rgba(15,23,42,.06)}
+.login-badge{display:flex;align-items:center;gap:7px;font-size:11px;font-weight:800;letter-spacing:1.2px;color:#64748b;margin-bottom:14px}
+.login-dot{width:7px;height:7px;border-radius:50%;background:#2563eb;flex:none}
+.login-title{font-size:20px;font-weight:800;color:#1a202c;line-height:1.35;margin-bottom:10px}
+.login-desc{font-size:13px;line-height:1.6;color:#64748b;margin-bottom:20px}
+.login-field{position:relative;display:flex;align-items:center;margin-bottom:10px}
+.login-field input{font-family:inherit;width:100%;font-size:14px;color:#1a202c;background:#fff;border:1px solid #cbd5e1;border-radius:9px;padding:11px 60px 11px 13px}
+.login-field input:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.12)}
+.login-peek{position:absolute;right:8px;font-family:inherit;font-size:12px;font-weight:600;color:#64748b;background:none;border:none;padding:5px 6px;cursor:pointer}
+.login-peek:hover{color:#2563eb}
+.login-submit{font-family:inherit;width:100%;font-size:14px;font-weight:700;color:#fff;background:#2563eb;border:none;border-radius:9px;padding:11px 0;cursor:pointer}
+.login-submit:hover:not(:disabled){background:#1d4ed8}
+.login-submit:disabled{opacity:.5;cursor:default}
+.login-error{font-size:12.5px;line-height:1.55;color:#dc2626;margin-top:12px}
+.login-foot{font-size:11.5px;line-height:1.6;color:#94a3b8;margin-top:20px;padding-top:16px;border-top:0.5px solid #f1f5f9}

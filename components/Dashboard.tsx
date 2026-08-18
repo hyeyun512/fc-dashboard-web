@@ -110,6 +110,25 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         </div>
       </div>
 
+      {/* 보고 자리에서 탭을 슬라이드처럼 넘기는 줄. 내용은 dashboardClient가 채운다. */}
+      <div className="slidenav" id="slidenav">
+        <button id="prevSlide" type="button">
+          ◀ 이전
+        </button>
+        <span id="slideCount">1 / 7</span>
+        <button id="nextSlide" type="button">
+          다음 ▶
+        </button>
+        <span className="sep" />
+        <span className="navlbl">탭 선택</span>
+        <select id="slideSelect" title="보고 싶은 탭을 고르세요" />
+        <span className="sep" />
+        <button id="fsBtn" type="button">
+          ⛶ 슬라이드쇼
+        </button>
+        <span className="hint">← → 키로도 이동</span>
+      </div>
+
       {/* ===================== SUMMARY① Humax합계 ===================== */}
       <div id="tab-sum-total" className="content active">
         <div className="sheet-hd">

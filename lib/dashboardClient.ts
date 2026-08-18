@@ -337,22 +337,78 @@ export function initDashboard(data: DashboardData): () => void {
     const box = el("modeFilterBox");
     if (box) box.style.display = MODE_TOGGLE_HIDDEN_TABS.includes(tabId) ? "none" : "";
   }
-  function onTabClick(ev: Event) {
-    const target = ev.currentTarget as HTMLElement;
-    const id = target.dataset.tab!;
+  function activateTab(id: string) {
     document.querySelectorAll(".content").forEach((c) => c.classList.remove("active"));
     document.querySelectorAll(".tab").forEach((t) => t.classList.remove("active"));
     el("tab-" + id)?.classList.add("active");
-    target.classList.add("active");
+    tabEls.find((t) => t.dataset.tab === id)?.classList.add("active");
     updateModeToggleVisibility(id);
+    updateSlideNav();
     requestAnimationFrame(() => {
       (CHART_BUILDERS[id] || []).forEach((fn) => fn());
       CHART_BUILDERS[id] = [];
     });
   }
+  function onTabClick(ev: Event) {
+    activateTab((ev.currentTarget as HTMLElement).dataset.tab!);
+  }
   const tabEls = Array.from(document.querySelectorAll<HTMLElement>(".tab"));
   tabEls.forEach((t) => t.addEventListener("click", onTabClick));
   updateModeToggleVisibility("sum-total");
+
+  // ================= 슬라이드 쇼 =================
+  // 탭 하나가 슬라이드 하나다. 보고 자리에서 마우스로 탭을 짚지 않고 좌우 키만으로 넘길 수 있게 한다.
+  const SLIDES = tabEls.map((t) => ({ id: t.dataset.tab!, label: t.innerText.trim() }));
+
+  function currentSlideIdx(): number {
+    const i = SLIDES.findIndex((s) => isActive(s.id));
+    return i < 0 ? 0 : i;
+  }
+  function updateSlideNav() {
+    const i = currentSlideIdx();
+    setText("slideCount", `${i + 1} / ${SLIDES.length}`);
+    const sel = el("slideSelect") as HTMLSelectElement | null;
+    if (sel) sel.value = String(i);
+    const prev = el("prevSlide") as HTMLButtonElement | null;
+    const next = el("nextSlide") as HTMLButtonElement | null;
+    // 양 끝에서는 버튼을 죽여, 눌러도 반응 없는 이유를 눈으로 알 수 있게 한다.
+    if (prev) prev.disabled = i === 0;
+    if (next) next.disabled = i === SLIDES.length - 1;
+  }
+  function goSlide(i: number) {
+    activateTab(SLIDES[Math.min(SLIDES.length - 1, Math.max(0, i))].id);
+  }
+  function onPrevSlide() { goSlide(currentSlideIdx() - 1); }
+  function onNextSlide() { goSlide(currentSlideIdx() + 1); }
+  function onSlideSelect(ev: Event) { goSlide(Number((ev.currentTarget as HTMLSelectElement).value)); }
+  function onSlideKey(ev: KeyboardEvent) {
+    // 월 선택 등 입력 요소 안에서는 방향키가 원래 용도로 쓰여야 하므로 가로채지 않는다.
+    const t = ev.target as HTMLElement | null;
+    if (t && (t.tagName === "INPUT" || t.tagName === "SELECT" || t.tagName === "TEXTAREA")) return;
+    if (ev.key === "ArrowRight" || ev.key === "PageDown") { ev.preventDefault(); onNextSlide(); }
+    else if (ev.key === "ArrowLeft" || ev.key === "PageUp") { ev.preventDefault(); onPrevSlide(); }
+  }
+  function onFsClick() {
+    if (document.fullscreenElement) document.exitFullscreen?.();
+    else document.documentElement.requestFullscreen?.().catch(() => {});
+  }
+  function onFsChange() {
+    const on = !!document.fullscreenElement;
+    document.body.classList.toggle("slideshow", on);
+    setText("fsBtn", on ? "⛶ 슬라이드쇼 끝내기" : "⛶ 슬라이드쇼");
+  }
+
+  const slideSelect = el("slideSelect") as HTMLSelectElement | null;
+  if (slideSelect) {
+    slideSelect.innerHTML = SLIDES.map((s, i) => `<option value="${i}">${i + 1}. ${s.label}</option>`).join("");
+    slideSelect.addEventListener("change", onSlideSelect);
+  }
+  el("prevSlide")?.addEventListener("click", onPrevSlide);
+  el("nextSlide")?.addEventListener("click", onNextSlide);
+  el("fsBtn")?.addEventListener("click", onFsClick);
+  document.addEventListener("keydown", onSlideKey);
+  document.addEventListener("fullscreenchange", onFsChange);
+  updateSlideNav();
 
   function legendHtml(pairs: [string, string][]): string {
     return pairs
@@ -1688,6 +1744,12 @@ export function initDashboard(data: DashboardData): () => void {
     monthSelect?.removeEventListener("change", onMonthChange);
     modeToggle?.removeEventListener("click", onModeToggleClick);
     tabEls.forEach((t) => t.removeEventListener("click", onTabClick));
+    slideSelect?.removeEventListener("change", onSlideSelect);
+    el("prevSlide")?.removeEventListener("click", onPrevSlide);
+    el("nextSlide")?.removeEventListener("click", onNextSlide);
+    el("fsBtn")?.removeEventListener("click", onFsClick);
+    document.removeEventListener("keydown", onSlideKey);
+    document.removeEventListener("fullscreenchange", onFsChange);
     Object.keys(charts).forEach(destroyChart);
   };
 }
