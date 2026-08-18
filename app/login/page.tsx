@@ -1,14 +1,12 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 
 /**
  * 열람 암호 입력 화면. 암호 확인은 서버(/api/login)에서 하고, 여기서는 값을 보내고 결과만 보여준다
  * — 화면단에서 비교하면 암호가 브라우저 번들에 그대로 실린다.
  */
 export default function LoginPage() {
-  const router = useRouter();
   const [password, setPassword] = useState("");
   const [show, setShow] = useState(false);
   const [error, setError] = useState("");
@@ -29,9 +27,9 @@ export default function LoginPage() {
         // useSearchParams를 쓰면 이 화면이 서버에서 비어 나와 JS 로드 전까지 흰 화면이 된다.
         // 돌아갈 곳은 제출 시점에만 필요하므로 주소에서 직접 읽는다.
         const from = new URLSearchParams(window.location.search).get("from");
-        // 열린 뒤에는 서버가 다시 그려야 하므로 replace + refresh 로 되돌아간다.
-        router.replace(from && from.startsWith("/") ? from : "/");
-        router.refresh();
+        // 클라이언트 라우터로 옮기면 캐시된 RSC 응답을 그대로 써서 미들웨어를 다시 타지 않는다
+        // (쿠키를 막 받았는데도 로그인 화면에 머무른다). 문서 요청을 새로 보내야 한다.
+        window.location.replace(from && from.startsWith("/") ? from : "/");
         return;
       }
       const body = (await res.json().catch(() => ({}))) as { error?: string };
