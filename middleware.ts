@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { AUTH_COOKIE, sha256Hex, timingSafeEqual } from "@/lib/auth";
+import { AUTH_COOKIE, AUTH_MAX_AGE, sha256Hex, timingSafeEqual } from "@/lib/auth";
 
 /**
  * 암호를 통과하지 못하면 대시보드를 **서버에서** 막는다.
@@ -16,7 +16,17 @@ export async function middleware(req: NextRequest) {
   const cookie = req.cookies.get(AUTH_COOKIE)?.value;
 
   if (expected && cookie && timingSafeEqual(cookie, await sha256Hex(expected))) {
-    return NextResponse.next();
+    // 볼 때마다 만료 시각을 뒤로 민다 — 5분은 "로그인하고 5분"이 아니라 "마지막으로 본 뒤 5분"이어야 한다.
+    // 고정 5분이면 보고 있는 도중에도 시간이 차서 암호를 다시 묻게 된다.
+    const res = NextResponse.next();
+    res.cookies.set(AUTH_COOKIE, cookie, {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+      maxAge: AUTH_MAX_AGE,
+    });
+    return res;
   }
 
   const url = req.nextUrl.clone();
