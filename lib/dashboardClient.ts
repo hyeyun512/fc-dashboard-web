@@ -1622,17 +1622,17 @@ export function initDashboard(data: DashboardData): () => void {
 
   // ================= SUMMARY② EVCS사업부 =================
   // EVCS는 주력사업이라 현 시점 예산의 정확도가 낮아, 이 시트에서는 예산 대비 비교(차이/집행률)를 쓰지 않는다.
-  // 예산은 "연간 예산 대비 누계 집행률" 한 컬럼에만 남겨 진척도만 확인한다.
+  // 예산은 "연간 집행률"(= 누계 실적 ÷ 연간 예산) 한 컬럼에만 남겨 진척도만 확인한다.
   const evcsAnnual = data.evcsAnnualBudget;
-  /** 누계 실적 / 연간 예산 = 연간 대비 누계 집행률. */
+  /** 누계 실적 / 연간 예산 = 연간 집행률. (누계 예산 대비인 '누계 집행률'과 구분하려고 이름을 나눴다.) */
   function annualRateCell(cumActual: number, annualBudget: number): string {
     return `<td class="badge-cell">${rateBadgeCell(rateOf(cumActual, annualBudget))}</td>`;
   }
 
   /**
    * 국내·해외 배부 현황.
-   * 열은 기간 흐름(당월 → 당월 누계 → 연간 예산 → 집행률)으로만 두고, 본사/법인 × 국내/해외는 행 계층으로 내렸다.
-   * 이렇게 하면 같은 행 안에서 "누계 ÷ 연간 예산 = 집행률"이 바로 검산된다
+   * 열은 기간 흐름(당월 → 당월 누계 → 연간 예산 → 연간 집행률)으로만 두고, 본사/법인 × 국내/해외는 행 계층으로 내렸다.
+   * 이렇게 하면 같은 행 안에서 "누계 ÷ 연간 예산 = 연간 집행률"이 바로 검산된다
    * (이전 표는 금액이 당월인데 집행률만 누계라 계산이 맞지 않아 보였다).
    */
   function evcsSplitTableBody(monthE: EvcsBlock, cumE: EvcsBlock): string {
@@ -1670,7 +1670,7 @@ export function initDashboard(data: DashboardData): () => void {
       `<table class="pl-tbl sum-tbl">` +
       colgroupHtml(126, 96, 4) +
       `<thead><tr><th>구분</th><th>${currentMonth} 실적</th><th class="col-sum">${currentMonth} 누계 실적</th>` +
-      `<th>연간 예산</th><th>누계 집행률</th></tr></thead>` +
+      `<th>연간 예산</th><th>연간 집행률</th></tr></thead>` +
       `<tbody>${hqBlock("본사")}${hqBlock("법인")}${totalRow}</tbody></table>`
     );
   }
@@ -1688,7 +1688,7 @@ export function initDashboard(data: DashboardData): () => void {
     const monthE = data.byMonth[currentMonth].evcs;
     const cumE = data.byMonth[currentMonth].cumulative.evcs;
 
-    setText("evcsSplitSub", `EVCS 배부금액 · 백만원 · 누계 집행률 = 누계 실적 ÷ 연간 예산`);
+    setText("evcsSplitSub", `EVCS 배부금액 · 백만원 · 연간 집행률 = 누계 실적 ÷ 연간 예산`);
     setHtml("evcsSplitTable", evcsSplitTableBody(monthE, cumE));
     renderSummaryBox("evcsComment", "evcs");
 

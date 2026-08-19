@@ -763,7 +763,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     return { cert_domestic_full, cert_overseas_full, fee_by_account_full };
   }
 
-  // EVCS 연간(1~12월) 예산 — EVCS 시트는 예산 대비 비교표를 두지 않고, "연간 예산 대비 누계 집행률"에만 쓴다.
+  // EVCS 연간(1~12월) 예산 — EVCS 시트는 예산 대비 비교표를 두지 않고, "연간 집행률"(누계 실적 ÷ 연간 예산)에만 쓴다.
   function evcsAnnualForHq(hq: string) {
     let domestic = 0;
     let overseas = 0;

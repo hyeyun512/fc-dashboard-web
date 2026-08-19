@@ -148,7 +148,7 @@ export type Trend = {
 };
 
 export type CategoryBudgetRow = { category: string; budget: number };
-/** EVCS 배부금액 기준 연간(1~12월) 예산 — 누계 집행률 산출에만 쓴다 (EVCS 시트는 예산 대비 비교표를 두지 않음). */
+/** EVCS 배부금액 기준 연간(1~12월) 예산 — 연간 집행률(누계 실적 ÷ 연간 예산) 산출에만 쓴다 (EVCS 시트는 예산 대비 비교표를 두지 않음). */
 export type EvcsAnnualBudgetHq = { domestic: number; overseas: number; total: number; byCategory: CategoryBudgetRow[] };
 export type EvcsAnnualBudget = { 본사: EvcsAnnualBudgetHq; 법인: EvcsAnnualBudgetHq };
 
