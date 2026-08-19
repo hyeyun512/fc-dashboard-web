@@ -162,7 +162,7 @@ export const SUMMARY_DETAIL_GROUPS: Record<string, SummaryCommentGroup[]> = {
       lines: [
         "누계 실적 3,666백만(집행률 119%)",
         "초과 사유: 예산 대비 Staff부문 +466백만(급여 +217, 특허처리비 +105)",
-        "*CEO주식보상비용 2.5억원, VVC 특허처리비 예산 누락",
+        "*CEO주식보상비용 6월 누계 2.5억원, VVC 특허처리비 예산 누락",
         "1월, 5월 일회성 증가: 26년 외부감사 착수금 200백만(1월), 15차 주식선택권 취소 216백만(5월)",
       ],
     },
@@ -283,7 +283,7 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
   "6월": {
     humax_total_month: [
       "당월 실적 2,537백만(집행률 100%): 본사 1,747백만(집행률 91%), 법인 790백만(집행률 131%)",
-      "HUMAX(공통) 541백만으로 전월 대비 175백만 감소",
+      "HUMAX(공통) 541백만으로 전월 대비 175백만 감소 (전월 주식보상비용 2.2억 집행 영향)",
       "STB 536백만으로 1~5월 평균 대비 60백만 초과",
     ],
     humax_total_cum: [
