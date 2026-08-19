@@ -229,8 +229,35 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="sheet-title">Humax합계_상세</div>
           </div>
         </div>
-        <div className="summary-row">
-          <div className="tbl-box" style={{ marginBottom: 0 }}>
+        {/* 2x2 — 위는 추이 두 개(원장 그대로 / 왜곡 수정ver)를 같은 눈금으로 나란히 두어 비교하게 하고,
+            아래는 그 근거가 되는 표와 Summary를 좌우로 둔다. 아래 두 상자는 칸 높이를 꽉 채워
+            아래 선이 한 줄로 맞는다 (칸만 늘리면 안쪽 상자가 짧아 선이 어긋나 보인다). */}
+        <div className="detail-grid">
+          <div className="panel detail-trend-panel">
+            <div className="detail-trend-hd">
+              <span className="detail-trend-title">월별 배부액 추이</span>
+              <AllocTrendLegend />
+            </div>
+            <div className="detail-trend-wrap">
+              <canvas id="detailAllocTrend" />
+            </div>
+          </div>
+
+          {/* 회계 처리 시기 오류로 튄 월을 되돌린 추이. 보정 내역은 lib/trendAdjustments.ts에
+              선언해두고, 차트와 보정 지점 메모가 같은 값을 쓰도록 한다.
+              점 위에 뜨는 메모 문구는 "Summary 작성용.xlsx"에서 관리한다 (SUMMARY_TREND_MEMOS). */}
+          <div className="panel detail-trend-panel">
+            <div className="detail-trend-hd">
+              <span className="detail-trend-title">월별 배부액 추이 (왜곡 수정ver)</span>
+              <AllocTrendLegend />
+            </div>
+            <div className="detail-trend-wrap">
+              <canvas id="detailAllocTrendAdj" />
+            </div>
+            <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
+          </div>
+
+          <div className="tbl-box">
             <div className="tbl-hd">
               <span id="sumDetailTitle" /> <span className="sub" id="sumDetailSub" />
             </div>
@@ -239,33 +266,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             </div>
             <div className="note" id="sumDetailNote" />
           </div>
-          <div className="detail-side">
-            <div className="panel detail-trend-panel">
-              <div className="detail-trend-hd">
-                <span className="detail-trend-title">월별 배부액 추이</span>
-                <AllocTrendLegend />
-              </div>
-              <div className="detail-trend-wrap">
-                <canvas id="detailAllocTrend" />
-              </div>
-            </div>
 
-            {/* 회계 처리 시기 오류로 튄 월을 되돌린 추이. 보정 내역은 lib/trendAdjustments.ts에
-                선언해두고, 차트와 하단 설명이 같은 값을 쓰도록 한다.
-                하단 '참고' 블록은 "Summary 작성용.xlsx"에서 관리한다 (SUMMARY_TREND_NOTE). */}
-            <div className="panel detail-trend-panel">
-              <div className="detail-trend-hd">
-                <span className="detail-trend-title">월별 배부액 추이 (왜곡 수정ver)</span>
-                <AllocTrendLegend />
-              </div>
-              <div className="detail-trend-wrap">
-                <canvas id="detailAllocTrendAdj" />
-              </div>
-              <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
-            </div>
-
-            <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="side" />
-          </div>
+          <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="side" />
         </div>
       </div>
 
