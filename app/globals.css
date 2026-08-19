@@ -158,8 +158,6 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
    아래 두 상자는 stretch로 칸 높이를 채워 아래 선이 한 줄로 끝난다. */
 .detail-grid{display:grid;grid-template-columns:minmax(0,auto) minmax(420px,1fr);gap:12px 16px;align-items:stretch;margin-bottom:16px}
 .detail-grid > *{min-width:0}
-/* 추이는 한 장으로 합쳐 폭을 다 쓴다 — 보고서에서 가장 먼저 보는 그림이라 크게 둔다. */
-.detail-grid > .detail-trend-panel{grid-column:1 / -1}
 .detail-grid > .tbl-box,.detail-grid > .summary-callout{margin-bottom:0;height:100%}
 .detail-trend-panel{padding:12px 16px}
 .detail-trend-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
@@ -168,6 +166,14 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .detail-trend-hd .leg{font-size:10.5px}
 .detail-trend-tag{font-size:10.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border:0.5px solid #e2e8f0;border-radius:20px;padding:2px 9px}
 .detail-trend-wrap{position:relative;height:260px;min-width:0}
+/* '배부액 추이' 시트는 그래프가 주인공이라 폭을 다 쓰고 높이도 넉넉히 둔다. */
+.trend-panel-full{margin-bottom:12px}
+.trend-panel-full .detail-trend-wrap{height:330px}
+/* 그 아래 Summary는 배부 항목 셋을 가로로 나란히 둔다 — 그래프의 세 선과 같은 순서로 읽힌다. */
+#tab-sum-trend .summary-callout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 24px;align-items:start;margin-bottom:0}
+#tab-sum-trend .summary-callout-title{grid-column:1 / -1}
+#tab-sum-trend .summary-group{margin-bottom:0}
+#tab-sum-trend .summary-comment-list{grid-template-columns:1fr}
 /* 캔버스를 흐름에서 빼 둔다 — 왼쪽 칸은 표 너비(auto)로 정해져야 하는데,
    캔버스가 흐름에 있으면 제 너비로 칸을 밀어 키우고 그 폭에 맞춰 다시 커지는 일이 생긴다. */
 .detail-trend-wrap > canvas{position:absolute;left:0;top:0}
@@ -223,6 +229,11 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .donut-box{display:flex;align-items:center;gap:16px;background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:12px 18px}
 .donut-wrap{position:relative;width:150px;height:150px;flex:none}
 /* flex:none으로 두면 칸이 좁아져도 줄지 않아 카드 밖으로 넘친다 — 줄어들 수 있게 min-width:0을 준다. */
+/* 도넛 말풍선은 캔버스 밖(범례 쪽)에 띄운다 — 150px 도넛 안에 그리면 그림을 통째로 가린다. */
+.donut-tip{position:absolute;left:calc(100% + 12px);transform:translateY(-50%);z-index:6;pointer-events:none;
+  opacity:0;transition:opacity .12s;background:rgba(15,23,42,.92);color:#fff;font-size:11.5px;line-height:1.45;
+  padding:6px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 6px 18px rgba(15,23,42,.22)}
+.donut-tip.flip{left:auto;right:calc(100% + 12px)}
 .donut-legend{list-style:none;margin:0;padding:0;flex:0 1 auto;min-width:0}
 .donut-legend li{display:flex;align-items:center;gap:8px;font-size:12px;color:#374151;padding:2.5px 0;white-space:nowrap}
 .dleg-dot{width:9px;height:9px;border-radius:2px;flex:none}
@@ -357,10 +368,8 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-sum-detail .detail-grid > .tbl-box,#tab-sum-detail .detail-grid > .summary-callout{height:100%}
   /* 추이 두 개가 위로 올라오면서 아래 표가 그만큼 내려왔다 — 행 여백을 줄여 한 페이지에 담는다.
      (아래선 수평은 stretch가 맞춰주므로, 예전처럼 높이를 손으로 맞출 필요가 없다) */
-  #tab-sum-detail .pl-tbl td{padding:1px 10px!important}
-  /* 추이를 한 장으로 키운 만큼 표를 조금 더 조인다 — 19행짜리라 한 줄에서 아낀 값이 크게 돌아온다. */
-  #tab-sum-detail .sum-tbl td{font-size:11px}
-  #tab-sum-detail .sum-tbl th{font-size:9.5px}
+  /* 추이가 별도 시트로 빠져 이 시트는 표가 전부다 — 조였던 행 여백을 되돌려 읽기 편하게 둔다. */
+  #tab-sum-detail .pl-tbl td{padding:4px 10px!important}
   /* 상세 시트는 항목이 3개(STB/공통/건물)라 줄이 가장 많다 — 줄 간격을 한 단계 더 좁혀
      상세 코멘트가 붙은 달에도 가로 한 페이지(733px) 안에 들어오게 한다. */
   #tab-sum-detail .summary-comment-list{font-size:10px;line-height:1.30;gap:3px 20px}
@@ -371,6 +380,8 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .detail-trend-panel{padding:6px 10px}
   .detail-trend-hd{margin-bottom:4px}
   .detail-trend-wrap{height:150px}
+  /* '배부액 추이' 시트는 그래프가 주인공이라 인쇄에서도 한 페이지가 허락하는 만큼 키운다. */
+  .trend-panel-full .detail-trend-wrap{height:400px}
   .detail-trend-title{font-size:11.5px}
   .summary-comment-list li.summary-comment-sub{font-size:9.5px;margin-top:-1px;padding-left:9px}
   .summary-comment-submark{width:5px;height:5px;border-width:1px;margin-top:4px}

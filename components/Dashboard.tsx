@@ -100,6 +100,9 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="tab tab-summary-lv" data-tab="sum-detail">
           Humax합계_상세
         </div>
+        <div className="tab tab-summary-lv" data-tab="sum-trend">
+          배부액 추이
+        </div>
         <div className="tab-sep" />
         <div className="tab tab-sub" data-tab="summary">
           Appendix A
@@ -237,21 +240,9 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         {/* 2x2 — 위는 추이 두 개(원장 그대로 / 왜곡 수정ver)를 같은 눈금으로 나란히 두어 비교하게 하고,
             아래는 그 근거가 되는 표와 Summary를 좌우로 둔다. 아래 두 상자는 칸 높이를 꽉 채워
             아래 선이 한 줄로 맞는다 (칸만 늘리면 안쪽 상자가 짧아 선이 어긋나 보인다). */}
+        {/* 좌: 배부 내역 표 / 우: 항목별 Summary. 두 상자는 칸 높이를 꽉 채워 아래 선이 한 줄로 끝난다
+            (칸만 늘리고 안쪽 상자를 그대로 두면 짧은 쪽 선이 떠 보인다). */}
         <div className="detail-grid">
-          {/* 원장 그대로의 추이 위에, 회계 처리 시기 오류로 튄 구간만 점선으로 겹쳐 그린다.
-              보정 내역은 lib/trendAdjustments.ts에 선언해두고 차트와 메모가 같은 값을 쓰게 하며,
-              점 위에 뜨는 메모 문구는 "Summary 작성용.xlsx"에서 관리한다 (SUMMARY_TREND_MEMOS). */}
-          <div className="panel detail-trend-panel">
-            <div className="detail-trend-hd">
-              <span className="detail-trend-title">월별 배부액 추이</span>
-              <AllocTrendLegend />
-            </div>
-            <div className="detail-trend-wrap">
-              <canvas id="detailAllocTrend" />
-            </div>
-            <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
-          </div>
-
           <div className="tbl-box">
             <div className="tbl-hd">
               <span id="sumDetailTitle" /> <span className="sub" id="sumDetailSub" />
@@ -264,6 +255,32 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
           <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="side" />
         </div>
+      </div>
+
+      {/* ===================== SUMMARY④ 배부액 추이 ===================== */}
+      <div id="tab-sum-trend" className="content">
+        <div className="sheet-hd">
+          <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
+          <div>
+            <div className="sheet-eyebrow">Summary</div>
+            <div className="sheet-title">배부액 추이</div>
+          </div>
+        </div>
+        {/* 원장 그대로의 추이 위에, 회계 처리 시기 오류로 튄 구간만 점선으로 겹쳐 그린다.
+            보정 내역은 lib/trendAdjustments.ts에 선언해두고 차트와 메모가 같은 값을 쓰게 하며,
+            점 위에 뜨는 메모 문구는 "Summary 작성용.xlsx"에서 관리한다 (SUMMARY_TREND_MEMOS). */}
+        <div className="panel detail-trend-panel trend-panel-full">
+          <div className="detail-trend-hd">
+            <span className="detail-trend-title">월별 배부액 추이</span>
+            <AllocTrendLegend />
+          </div>
+          <div className="detail-trend-wrap">
+            <canvas id="detailAllocTrend" />
+          </div>
+          <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
+        </div>
+        {/* 그래프에서 읽히는 것을 배부 항목별로 나눠 적는다 (STB / HUMAX(공통) / 건물). */}
+        <SummaryCommentBox id="trendComment" accent="#1d4ed8" />
       </div>
 
       {/* ===================== APPENDIX A (구 Humax(전사) 상세) ===================== */}

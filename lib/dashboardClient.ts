@@ -14,8 +14,10 @@ import type {
 import { ALLOC_TREND_ADJUSTMENTS } from "./trendAdjustments";
 import {
   SUMMARY_TREND_MEMOS,
+  SUMMARY_TREND_GROUPS,
   SUMMARY_COMMENTS,
   SUMMARY_DETAIL_GROUPS,
+  type SummaryCommentGroup,
   type SummaryCommentKey,
 } from "./summaryComments";
 import {
@@ -603,6 +605,34 @@ export function initDashboard(data: DashboardData): () => void {
   }
 
   /** 계정과목별 구성비 도넛 차트. */
+  /**
+   * 도넛 말풍선 — 캔버스가 150px밖에 안 돼서 Chart.js 기본 말풍선을 쓰면 도넛을 통째로 가린다.
+   * (Chart.js는 말풍선을 캔버스 안으로 밀어 넣기 때문에 위치를 아무리 잡아도 벗어나지 못한다.)
+   * 그래서 캔버스 밖 범례 쪽에 직접 띄운다. 화면 오른쪽에 자리가 없으면 왼쪽으로 접는다.
+   */
+  function donutTooltipOutside(ctx: { chart: AnyChart; tooltip: any }) {
+    const wrap = (ctx.chart as any).canvas.parentNode as HTMLElement;
+    let tip = wrap.querySelector(":scope > .donut-tip") as HTMLElement | null;
+    if (!tip) {
+      tip = document.createElement("div");
+      tip.className = "donut-tip";
+      wrap.appendChild(tip);
+    }
+    const tt = ctx.tooltip;
+    if (!tt || tt.opacity === 0) {
+      tip.style.opacity = "0";
+      return;
+    }
+    const lines: string[] = (tt.body || []).flatMap((b: { lines: string[] }) => b.lines);
+    tip.innerHTML = lines.map((l) => `<div>${l}</div>`).join("");
+    // 세로 위치는 가리키는 조각에 맞춘다 — 어느 조각을 읽고 있는지 눈이 따라가기 쉽다.
+    const arc = tt.dataPoints?.[0]?.element;
+    tip.style.top = `${arc ? arc.tooltipPosition().y : tt.caretY}px`;
+    const box = wrap.getBoundingClientRect();
+    tip.classList.toggle("flip", box.right + 240 > window.innerWidth);
+    tip.style.opacity = "1";
+  }
+
   function donutChart(canvasId: string, labels: string[], values: number[], colors: string[]): AnyChart {
     const canvas = el(canvasId) as HTMLCanvasElement;
     const total = values.reduce((a, b) => a + b, 0) || 1;
@@ -617,6 +647,8 @@ export function initDashboard(data: DashboardData): () => void {
         plugins: {
           legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 }, padding: 12 } },
           tooltip: {
+            enabled: false,
+            external: donutTooltipOutside,
             callbacks: {
               label: (ctx: any) => {
                 const v = ctx.parsed as number;
@@ -714,6 +746,8 @@ export function initDashboard(data: DashboardData): () => void {
         plugins: {
           legend: { display: false },
           tooltip: {
+            enabled: false,
+            external: donutTooltipOutside,
             callbacks: {
               label: (ctx: any) => `${ctx.label}: ${fmtM(ctx.parsed as number)}백만원 (${(((ctx.parsed as number) / total) * 100).toFixed(1)}%)`,
             },
@@ -1478,9 +1512,9 @@ export function initDashboard(data: DashboardData): () => void {
     const lines = SUMMARY_COMMENTS[currentMonth]?.[key];
     setHtml(elId, lines && lines.length ? summaryTitleHtml + commentListHtml(lines) : "");
   }
-  /** Summary③ 박스 — 배부 항목(STB/HUMAX(공통)/건물)별 소제목으로 나눠 보여준다. */
-  function renderSummaryDetailBox(elId: string) {
-    const groups = SUMMARY_DETAIL_GROUPS[currentMonth];
+  /** 배부 항목(STB/HUMAX(공통)/건물)별 소제목으로 나눠 보여주는 Summary 박스 (Summary③·④가 같은 모양을 쓴다). */
+  function renderSummaryDetailBox(elId: string, source: Record<string, SummaryCommentGroup[]> = SUMMARY_DETAIL_GROUPS) {
+    const groups = source[currentMonth];
     setHtml(
       elId,
       groups && groups.length
@@ -1647,7 +1681,7 @@ export function initDashboard(data: DashboardData): () => void {
       };
     };
 
-    queueChart("sum-detail", "detailAllocTrend", () =>
+    queueChart("sum-trend", "detailAllocTrend", () =>
       lineChartMulti("detailAllocTrend", months, [
         ...ALLOC_TREND_SERIES.map((key) => allocDataset(key, months.map((m) => pickAlloc(m, key)))),
         ...ALLOC_TREND_SERIES.map(adjOverlay).filter((d): d is NonNullable<typeof d> => d !== null),
@@ -1662,6 +1696,7 @@ export function initDashboard(data: DashboardData): () => void {
     );
 
     renderSummaryDetailBox("sumDetailComment");
+    renderSummaryDetailBox("trendComment", SUMMARY_TREND_GROUPS);
 
     // '기타'로 묶은 법인이 무엇인지 표 아래 각주로 밝힌다.
     const hasMinor = corpCompanyRows(board).some((r) => MINOR_CORPS.includes(r.label));

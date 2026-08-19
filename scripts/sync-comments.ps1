@@ -6,9 +6,9 @@
 
   엑셀 시트(첫 번째 시트) 형식 — 헤더 1행 + 박스 1개당 1행:
       탭 | 기간 | 구분 | Summary
-    · 탭     : Humax합계 / EVCS사업부 / Humax합계_상세
+    · 탭     : Humax합계 / EVCS사업부 / Humax합계_상세 / 배부액 추이
     · 기간   : "6월"처럼 당월이면 당월 박스, "6월 누계"처럼 '누계'가 들어가면 누계 박스
-    · 구분   : Humax합계_상세에서만 사용 (STB / HUMAX(공통) / 건물). 나머지는 비워둔다
+    · 구분   : Humax합계_상세와 배부액 추이에서 사용 (STB / HUMAX(공통) / 건물). 나머지는 비워둔다
     · Summary: 한 셀 안에 Alt+Enter로 줄바꿈, 줄마다 "- "로 시작 (하이픈은 있어도 없어도 된다)
 
   [셀 안에서 쓰는 표기]
@@ -17,8 +17,8 @@
     · *   : 그 줄은 상세 코멘트 — 마커 없이 연한 회색으로 흐리게 깔린다 (가장 아래 단계)
     · []  : 그 자리에서 줄을 바꾼다 (한 항목 안에서 줄만 나뉘고, 새 항목이 되지는 않는다)
 
-  '왜곡 수정ver' 그래프의 보정 지점 메모도 여기서 관리한다 — 탭에 'Humax합계_상세',
-  구분에 '월별 배부액 추이'를 적고 줄마다 아래 형식으로 쓰면 SUMMARY_TREND_MEMOS로 나간다.
+  추이 그래프의 보정 지점 메모도 여기서 관리한다 — 구분에 '월별 배부액 추이'를 적고
+  줄마다 아래 형식으로 쓰면 SUMMARY_TREND_MEMOS로 나간다.
       [STB] 4월, 5월: STB License Fee/Nagra 4월 -84백만, 5월 +84백만 (선급비용 결산 조정 지연)
        ^계열  ^월(쉼표로 여러 개)  ^그 점에 커서를 올리면 뜨는 메모
   계열 이름은 그래프 범례와 같게 적는다 (STB / HUMAX(공통) / 건물). 이 행에서 '*'로 시작하는
@@ -179,6 +179,7 @@ function Split-Lines([string]$text) {
 # 화면 상단 '보고 월'에 따라 Summary가 바뀌므로, 모든 내용을 월(B열)별로 나눠 담는다.
 $boxesByMonth = @{}                                       # "6월" → @{ key = string[] }
 $detailByMonth = @{}                                      # "6월" → List(구분, 줄들) — 시트 순서 유지
+$trendByMonth = @{}                                       # "6월" → List(구분, 줄들) — '배부액 추이' 시트용
 $trendMemos = New-Object System.Collections.Generic.List[object]   # '왜곡 수정ver' 그래프 보정 지점 메모 (월 무관)
 $seenRows = 0
 
@@ -203,7 +204,8 @@ foreach ($entry in $rows) {
   $seenRows++
 
   $tabKey = Normalize $tab
-  $isTrendNote = ($tabKey -like "*상세*") -and ((Normalize $group) -like "*추이*")
+  # 보정 지점 메모 행은 구분('월별 배부액 추이')으로만 알아본다 — 어느 시트에 적어도 같은 곳으로 간다.
+  $isTrendNote = ((Normalize $group) -like "*추이*")
 
   # '참고' 행만 월이 없어도 된다 (추이 그래프는 전체 기간을 그리므로).
   $month = Month-Of $period
@@ -213,10 +215,11 @@ foreach ($entry in $rows) {
   if ($month -and -not $boxesByMonth.ContainsKey($month)) {
     $boxesByMonth[$month] = @{}
     $detailByMonth[$month] = New-Object System.Collections.Generic.List[object]
+    $trendByMonth[$month] = New-Object System.Collections.Generic.List[object]
   }
 
-  if ($tabKey -like "*상세*") {
-    if (-not $group) { throw "행 ${rowNum}: 'Humax합계_상세'는 구분(C열)이 비어 있으면 안 됩니다." }
+  if ($isTrendNote -or $tabKey -like "*상세*" -or $tabKey -like "*배부액*") {
+    if (-not $group) { throw "행 ${rowNum}: 'Humax합계_상세' / '배부액 추이'는 구분(C열)이 비어 있으면 안 됩니다." }
     if ($isTrendNote) {
       if ($trendMemos.Count -gt 0) { throw "행 ${rowNum}: '월별 배부액 추이' 행이 두 번 나옵니다. 한 행에 모아 주세요." }
       foreach ($line in $lines) {
@@ -234,6 +237,8 @@ foreach ($entry in $rows) {
           Text   = $m.Groups[3].Value.Trim()
         })
       }
+    } elseif ($tabKey -like "*배부액*") {
+      $trendByMonth[$month].Add([pscustomobject]@{ Label = $group; Lines = $lines })
     } else {
       $detailByMonth[$month].Add([pscustomobject]@{ Label = $group; Lines = $lines })
     }
@@ -243,7 +248,7 @@ foreach ($entry in $rows) {
     if ($period -like "*누계*") { $boxesByMonth[$month]["humax_total_cum"] = $lines }
     else { $boxesByMonth[$month]["humax_total_month"] = $lines }
   } else {
-    throw "행 ${rowNum}: 알 수 없는 탭 이름 '$tab' (Humax합계 / EVCS사업부 / Humax합계_상세 중 하나여야 합니다)"
+    throw "행 ${rowNum}: 알 수 없는 탭 이름 '$tab' (Humax합계 / EVCS사업부 / Humax합계_상세 / 배부액 추이 중 하나여야 합니다)"
   }
 }
 
@@ -311,7 +316,27 @@ foreach ($mo in $months) {
 W '};'
 W ''
 W '/**'
-W " * '월별 배부액 추이 (왜곡 수정ver)' 그래프의 보정 지점에 붙는 메모."
+W " * '배부액 추이' 시트의 Summary — 추이 그래프에서 읽히는 것을 배부 항목별로 적는다."
+W ' * (같은 항목이라도 Humax합계_상세는 계정·조직 관점, 여기는 월별 흐름 관점으로 나눠 쓴다.)'
+W ' */'
+W 'export const SUMMARY_TREND_GROUPS: Record<string, SummaryCommentGroup[]> = {'
+foreach ($mo in $months) {
+  if ($trendByMonth[$mo].Count -eq 0) { continue }
+  W ("  `"" + (Escape-TS $mo) + "`": [")
+  foreach ($g in $trendByMonth[$mo]) {
+    W '    {'
+    W ("      label: `"" + (Escape-TS $g.Label) + "`",")
+    W '      lines: ['
+    foreach ($line in $g.Lines) { W ("        `"" + (Escape-TS $line) + "`",") }
+    W '      ],'
+    W '    },'
+  }
+  W '  ],'
+}
+W '};'
+W ''
+W '/**'
+W " * '월별 배부액 추이' 그래프의 보정 지점에 붙는 메모."
 W ' *'
 W ' * 그래프에서 점을 키워 표시한 보정 지점에 커서를 올리면 이 문구가 뜬다. 무엇을 어떻게'
 W ' * 되돌렸는지는 그래프 아래 한 줄(보정 내역)로만 밝히고, 자세한 내용은 여기로 옮겨'
@@ -355,5 +380,7 @@ foreach ($mo in $months) {
   $det = ($detailByMonth[$mo] | ForEach-Object { "{0} {1}줄" -f $_.Label, $_.Lines.Count }) -join ", "
   Write-Host ("  [{0}] {1}" -f $mo, ($parts -join ", "))
   if ($det) { Write-Host ("        상세: {0}" -f $det) }
+  $trd = ($trendByMonth[$mo] | ForEach-Object { "{0} {1}줄" -f $_.Label, $_.Lines.Count }) -join ", "
+  if ($trd) { Write-Host ("        추이: {0}" -f $trd) }
 }
 Write-Host ("  월별 배부액 추이(메모) : {0}건 (월 무관)" -f $trendMemos.Count)
