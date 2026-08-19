@@ -1449,20 +1449,24 @@ export function initDashboard(data: DashboardData): () => void {
   const SUMMARY_ACCENT = "#1d4ed8";
   const summaryTitleHtml = `<div class="summary-callout-title" style="color:${SUMMARY_ACCENT}">Summary</div>`;
   /**
-   * 한 줄 = 불릿 하나. 엑셀에서 '*'를 달아 적은 줄은 윗줄에 딸린 상세 코멘트라 불릿 없이
-   * 연한 회색으로 깔고(본문과 섞이면 어디까지가 요약인지 흐려진다), 줄 안의 줄바꿈(엑셀의 '[]')은
-   * <br>로 편다 — 한 항목 안에서 줄만 나뉘고 새 불릿이 되지는 않아야 하기 때문이다.
+   * 한 줄 = 항목 하나. 엑셀에서 붙여 온 표시로 세 단계를 나눈다 — 표시가 없으면 상위(파란 점),
+   * '-'는 윗줄에 딸린 하위 메모(들여쓰기 + 짧은 선), '*'는 그 아래 상세 코멘트(마커 없이 연한 회색).
+   * 요약과 근거를 같은 굵기로 늘어놓으면 어디까지가 요약인지 흐려져서 단계를 눈에 보이게 둔다.
+   * 줄 안의 줄바꿈(엑셀의 '[]')은 <br>로 편다 — 한 항목 안에서 줄만 나뉘고 새 항목이 되지는 않는다.
    */
   function commentListHtml(lines: string[]): string {
+    // 하위·상세가 섞인 목록은 한 열로 세운다 — 여러 열로 흐르면 하위 줄이 제 부모가 아니라
+    // 옆 칸 줄 옆에 붙어버려, 무엇에 딸린 설명인지 알 수 없게 된다.
+    const hasSub = lines.some((l) => l.startsWith("-") || l.startsWith("*"));
     return (
-      `<ul class="summary-comment-list">` +
+      `<ul class="summary-comment-list${hasSub ? " summary-comment-list-stacked" : ""}">` +
       lines
         .map((l) => {
-          const isDetail = l.startsWith("*");
-          const body = (isDetail ? l.slice(1).trim() : l).replace(/\n/g, "<br>");
-          return isDetail
-            ? `<li class="summary-comment-detail">${body}</li>`
-            : `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;
+          const level = l.startsWith("*") ? "detail" : l.startsWith("-") ? "sub" : "main";
+          const body = (level === "main" ? l : l.slice(1).trim()).replace(/\n/g, "<br>");
+          if (level === "detail") return `<li class="summary-comment-detail">${body}</li>`;
+          if (level === "sub") return `<li class="summary-comment-sub"><span class="summary-comment-dash"></span>${body}</li>`;
+          return `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;
         })
         .join("") +
       `</ul>`

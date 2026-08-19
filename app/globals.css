@@ -134,9 +134,13 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .summary-comment-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 24px;font-size:13px;line-height:1.55;color:#374151}
 .summary-comment-list li{display:flex;align-items:flex-start;gap:8px;margin:0}
 .summary-comment-dot{width:5px;height:5px;border-radius:50%;flex:none;margin-top:7px}
-/* 엑셀에서 '*'를 달아 적은 줄 — 윗줄에 딸린 상세 코멘트라 불릿 없이 한 칸 들여 흐리게 깐다
-   (요약 한 줄과 그 근거를 같은 굵기로 두면 어디까지가 요약인지 흐려진다) */
-.summary-comment-list li.summary-comment-detail{color:#94a3b8;font-size:12px;padding-left:13px;margin-top:-4px}
+/* 엑셀 표시로 나뉘는 세 단계 — 상위(파란 점) > 하위 '-'(짧은 선) > 상세 '*'(마커 없음).
+   단계마다 들여쓰기·색·크기를 한 단계씩 낮춰, 요약 한 줄과 그 근거가 한눈에 구분되게 한다. */
+/* 하위·상세가 있는 목록은 여러 열로 흘리지 않는다 (하위가 제 부모 아래에 와야 뜻이 통한다) */
+.summary-comment-list-stacked{grid-template-columns:1fr}
+.summary-comment-list li.summary-comment-sub{color:#64748b;font-size:12.5px;padding-left:13px;margin-top:-3px}
+.summary-comment-dash{width:6px;height:1.5px;border-radius:1px;background:#cbd5e1;flex:none;margin-top:9px}
+.summary-comment-list li.summary-comment-detail{color:#94a3b8;font-size:12px;padding-left:26px;margin-top:-4px}
 /* 표 우측에 세로로 붙는 형태 (Humax합계의 당월/당월누계 표 각각에 하나씩). */
 .summary-callout-side{margin-bottom:0}
 .summary-callout-side .summary-comment-list{grid-template-columns:1fr;gap:9px}
@@ -362,7 +366,9 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .detail-trend-hd{margin-bottom:4px}
   .detail-trend-wrap{height:92px}
   .detail-trend-title{font-size:11.5px}
-  .summary-comment-list li.summary-comment-detail{font-size:8px;margin-top:-2px;padding-left:9px}
+  .summary-comment-list li.summary-comment-sub{font-size:9.5px;margin-top:-1px;padding-left:9px}
+  .summary-comment-dash{margin-top:6px}
+  .summary-comment-list li.summary-comment-detail{font-size:8px;margin-top:-2px;padding-left:18px}
   .detail-trend-note{margin-top:3px;padding-top:3px;font-size:8.5px;line-height:1.28}
   .detail-trend-note-item{margin-top:1px}
   /* 슬라이드 이동 줄은 화면 조작용이라 인쇄물에는 남기지 않는다.

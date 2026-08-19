@@ -12,8 +12,10 @@
     · Summary: 한 셀 안에 Alt+Enter로 줄바꿈, 줄마다 "- "로 시작 (하이픈은 있어도 없어도 된다)
 
   [셀 안에서 쓰는 표기]
-    · []  : 그 자리에서 줄을 바꾼다 (한 불릿 안에서 줄만 나뉘고, 새 불릿이 되지는 않는다)
-    · *   : 그 줄은 상세 코멘트 — 화면에서 연한 회색으로 흐리게 깔린다 (윗줄에 딸린 부연)
+    · -   : 그 줄은 바로 윗줄의 하위 메모 — 한 칸 들여 짧은 선으로 표시한다
+            (한 셀의 모든 줄이 '-'로 시작하면 예전 방식의 줄머리 기호로 보고 전부 상위로 둔다)
+    · *   : 그 줄은 상세 코멘트 — 마커 없이 연한 회색으로 흐리게 깔린다 (가장 아래 단계)
+    · []  : 그 자리에서 줄을 바꾼다 (한 항목 안에서 줄만 나뉘고, 새 항목이 되지는 않는다)
 
   '왜곡 수정ver' 그래프의 보정 지점 메모도 여기서 관리한다 — 탭에 'Humax합계_상세',
   구분에 '월별 배부액 추이'를 적고 줄마다 아래 형식으로 쓰면 SUMMARY_TREND_MEMOS로 나간다.
@@ -143,16 +145,30 @@ function Normalize([string]$s) {
   return ($s -replace "[①②③④⑤\s]", "").ToLowerInvariant()
 }
 
-# 한 셀 안의 여러 줄을 불릿 목록으로 자른다. 줄머리 기호(-, ·, •)와 공백은 떼어낸다.
+# 한 셀 안의 여러 줄을 항목 목록으로 자른다.
+#
+# '- '로 시작하는 줄은 바로 윗줄에 딸린 하위 메모다 — 화면에서 한 칸 들여 짧은 선으로 표시한다.
+# 다만 예전에 쓰던 셀은 모든 줄이 '- '로 시작한다(그때는 그냥 줄머리 기호였다). 그런 셀은
+# 하위가 하나도 없는 셈이라 전부 상위로 되돌린다 — 안 그러면 지난 달 문구가 통째로 하위가 된다.
+# 하위로 남길 줄에는 '-'를, 상세 코멘트로 남길 줄에는 '*'를 앞에 붙여 넘긴다(화면이 이걸 보고 나눈다).
 # "- " 처럼 뒤에 공백이 있을 때만 벗겨서, "-454는 ..." 같이 음수로 시작하는 문장이 망가지지 않게 한다.
-# '*'는 지우지 않는다 — 화면에서 상세 코멘트(연한 회색)로 구분하는 표시라 그대로 넘겨야 한다.
 # '[]'는 '여기서 줄을 바꿔라'는 표시라 실제 줄바꿈으로 바꾼다.
 function Split-Lines([string]$text) {
   if (-not $text) { return @() }
+  $raw = @($text -split "`r`n|`n|`r" | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+  if ($raw.Count -eq 0) { return @() }
+  $dashed = @($raw | Where-Object { $_ -match '^-\s+' })
+  $allDashed = ($dashed.Count -eq $raw.Count)
   return @(
-    $text -split "`r`n|`n|`r" |
+    $raw |
       ForEach-Object {
-        $line = ($_ -replace "^\s*(?:-[ \t]+|[•·][ \t]*)", "").Trim()
+        $line = $_
+        if ($line -match '^-\s+') {
+          $line = $line -replace '^-\s+', ''
+          if (-not $allDashed) { $line = '-' + $line }
+        } else {
+          $line = $line -replace "^[•·][ \t]*", ""
+        }
         $line = $line -replace "^\*[ \t]*", "*"
         (($line -split "\[\]") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }) -join "`n"
       } |
