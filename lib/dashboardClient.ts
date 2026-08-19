@@ -1498,7 +1498,11 @@ export function initDashboard(data: DashboardData): () => void {
       lines
         .map((l) => {
           const level = l.startsWith("*") ? "detail" : l.startsWith("-") ? "sub" : "main";
-          const body = (level === "main" ? l : l.slice(1).trim()).replace(/\n/g, "<br>");
+          const raw = level === "main" ? l : l.slice(1).trim();
+          // '[인건비]'처럼 대괄호만 있는 줄은 항목이 아니라 그 아래 줄들을 묶는 머리말이다 — 글머리 기호를 달지 않는다.
+          const category = level === "main" ? raw.match(/^\[(.+)\]$/) : null;
+          if (category) return `<li class="summary-cat">${category[1]}</li>`;
+          const body = raw.replace(/\n/g, "<br>");
           if (level === "detail") return `<li class="summary-comment-detail">${body}</li>`;
           if (level === "sub") return `<li class="summary-comment-sub"><span class="summary-comment-submark"></span>${body}</li>`;
           return `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;
@@ -1512,21 +1516,35 @@ export function initDashboard(data: DashboardData): () => void {
     const lines = SUMMARY_COMMENTS[currentMonth]?.[key];
     setHtml(elId, lines && lines.length ? summaryTitleHtml + commentListHtml(lines) : "");
   }
-  /** 배부 항목(STB/HUMAX(공통)/건물)별 소제목으로 나눠 보여주는 Summary 박스 (Summary③·④가 같은 모양을 쓴다). */
+  /** 배부 항목 이름 → 추이 그래프에서 그 항목이 쓰는 선 색. 상자 색을 선 색과 맞춰 둘을 눈으로 잇는다. */
+  const SERIES_COLOR_BY_LABEL: Record<string, string> = Object.fromEntries(
+    ALLOC_TREND_SERIES.map((key) => [ALLOC_SERIES_LABEL[key], ALLOC_SERIES_COLOR[key]])
+  );
+
+  /**
+   * 배부 항목(STB/HUMAX(공통)/건물)별로 상자를 따로 두는 Summary (Summary③·④가 같은 모양을 쓴다).
+   * 한 상자에 세 항목을 이어 붙이면 어디서 항목이 바뀌는지 소제목 하나에만 기대게 되어,
+   * 상자를 나누고 왼쪽 띠를 그래프의 선 색과 같게 칠했다.
+   */
   function renderSummaryDetailBox(elId: string, source: Record<string, SummaryCommentGroup[]> = SUMMARY_DETAIL_GROUPS) {
     const groups = source[currentMonth];
     setHtml(
       elId,
       groups && groups.length
         ? summaryTitleHtml +
+            `<div class="summary-cards">` +
             groups
-              .map(
-                (g) =>
-                  `<div class="summary-group"><div class="summary-group-label">${g.label}</div>` +
+              .map((g) => {
+                const accent = SERIES_COLOR_BY_LABEL[g.label] || SUMMARY_ACCENT;
+                return (
+                  `<div class="summary-card" style="border-left-color:${accent}">` +
+                  `<div class="summary-card-hd" style="color:${accent}">${g.label}</div>` +
                   commentListHtml(g.lines) +
                   `</div>`
-              )
-              .join("")
+                );
+              })
+              .join("") +
+            `</div>`
         : ""
     );
   }

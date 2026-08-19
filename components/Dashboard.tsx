@@ -32,7 +32,10 @@ function AllocTrendLegend() {
  * 월을 알고 있는 dashboardClient가 채운다. 문구가 없는 달에는 :empty 규칙으로 박스째 숨겨진다.
  * 문구 자체는 화면에서 고치지 않고 "Summary 작성용.xlsx"를 고쳐 동기화한다.
  */
-function SummaryCommentBox({ id, accent, variant }: { id: string; accent: string; variant?: "side" }) {
+function SummaryCommentBox({ id, accent, variant }: { id: string; accent: string; variant?: "side" | "cards" }) {
+  // "cards"는 배부 항목(STB/HUMAX(공통)/건물)마다 상자를 따로 두는 형태 — 테두리는 항목 상자가 가지므로
+  // 바깥 상자는 테두리 없이 자리만 잡는다.
+  if (variant === "cards") return <div id={id} className="summary-cards-box" />;
   return (
     <div
       id={id}
@@ -253,7 +256,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="note" id="sumDetailNote" />
           </div>
 
-          <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="side" />
+          <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="cards" />
         </div>
       </div>
 
@@ -280,7 +283,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
           <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
         </div>
         {/* 그래프에서 읽히는 것을 배부 항목별로 나눠 적는다 (STB / HUMAX(공통) / 건물). */}
-        <SummaryCommentBox id="trendComment" accent="#1d4ed8" />
+        <SummaryCommentBox id="trendComment" accent="#1d4ed8" variant="cards" />
       </div>
 
       {/* ===================== APPENDIX A (구 Humax(전사) 상세) ===================== */}

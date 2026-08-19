@@ -148,17 +148,23 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 
 /* 표를 내용에 맞게 좁히고(width:auto) 데이터 열은 모두 동일 너비로 맞춘다. 너비는 표별로 CSS 변수로 지정. */
 .summary-row{display:grid;grid-template-columns:auto minmax(420px,1fr);gap:16px;align-items:start;margin-bottom:16px}
-/* Summary를 배부 항목(STB/HUMAX(공통)/건물)별로 나눠 보여줄 때의 그룹 헤더 */
-.summary-group{margin-bottom:11px}
-.summary-group:last-of-type{margin-bottom:0}
-.summary-group-label{font-size:10.5px;font-weight:800;color:#1d4ed8;letter-spacing:.4px;margin-bottom:5px}
+/* 배부 항목별 Summary — 항목마다 상자를 따로 두고, 왼쪽 띠를 추이 그래프의 선 색과 맞춘다
+   (상자 색만 보고도 그래프의 어느 선 이야기인지 알 수 있게 한다). */
+.summary-cards{display:grid;gap:10px;align-items:stretch}
+.summary-card{background:#fff;border:0.5px solid #e6eaf0;border-left:3px solid #1d4ed8;border-radius:10px;
+  padding:11px 15px 12px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.summary-card-hd{font-size:11px;font-weight:800;letter-spacing:.4px;margin-bottom:7px}
+/* '[인건비]'처럼 대괄호로 적은 줄 — 아래 줄들을 묶는 머리말이라 글머리 기호 없이 라벨로만 둔다. */
+.summary-comment-list li.summary-cat{display:block;padding-left:0;margin-top:5px;
+  font-size:10.5px;font-weight:700;letter-spacing:.3px;color:#94a3b8}
+.summary-comment-list li.summary-cat:first-child{margin-top:0}
 
 /* Humax합계_상세: 위 칸은 추이 두 개(원장 그대로 / 왜곡 수정ver)를 좌우로, 아래 칸은 표와 Summary를 좌우로.
    같은 격자를 쓰므로 위아래 칸의 세로선이 맞고, 두 추이를 같은 폭·같은 눈금으로 나란히 비교할 수 있다.
    아래 두 상자는 stretch로 칸 높이를 채워 아래 선이 한 줄로 끝난다. */
 .detail-grid{display:grid;grid-template-columns:minmax(0,auto) minmax(420px,1fr);gap:12px 16px;align-items:stretch;margin-bottom:16px}
 .detail-grid > *{min-width:0}
-.detail-grid > .tbl-box,.detail-grid > .summary-callout{margin-bottom:0;height:100%}
+.detail-grid > .tbl-box,.detail-grid > .summary-cards-box{margin-bottom:0;height:100%}
 .detail-trend-panel{padding:12px 16px}
 .detail-trend-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
 .detail-trend-title{font-size:13px;font-weight:700;color:#1a202c}
@@ -170,10 +176,15 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .trend-panel-full{margin-bottom:12px}
 .trend-panel-full .detail-trend-wrap{height:330px}
 /* 그 아래 Summary는 배부 항목 셋을 가로로 나란히 둔다 — 그래프의 세 선과 같은 순서로 읽힌다. */
-#tab-sum-trend .summary-callout{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 24px;align-items:start;margin-bottom:0}
-#tab-sum-trend .summary-callout-title{grid-column:1 / -1}
-#tab-sum-trend .summary-group{margin-bottom:0}
+#tab-sum-trend .summary-cards{grid-template-columns:repeat(3,minmax(0,1fr))}
 #tab-sum-trend .summary-comment-list{grid-template-columns:1fr}
+/* 상세 시트는 Summary가 좁은 오른쪽 칸이라 세로로 쌓고, 마지막 상자가 남은 높이를 채워
+   표와 아래 선이 같은 자리에서 끝나게 한다. */
+#tab-sum-detail .summary-cards-box{height:100%;display:flex;flex-direction:column}
+#tab-sum-detail .summary-cards{flex:1;display:flex;flex-direction:column}
+/* 남는 높이는 마지막 상자에 몰아주지 않고 셋이 고르게 나눠 갖는다 — 한 상자만 텅 비면 보기 나쁘다. */
+#tab-sum-detail .summary-cards .summary-card{flex:1 1 auto}
+#tab-sum-detail .summary-comment-list{grid-template-columns:1fr}
 /* 캔버스를 흐름에서 빼 둔다 — 왼쪽 칸은 표 너비(auto)로 정해져야 하는데,
    캔버스가 흐름에 있으면 제 너비로 칸을 밀어 키우고 그 폭에 맞춰 다시 커지는 일이 생긴다. */
 .detail-trend-wrap > canvas{position:absolute;left:0;top:0}
@@ -357,15 +368,17 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   /* 칸 안 마지막 요소의 아래 여백은 그 칸을 그만큼 더 길게 만들어 좌우 아래선을 어긋나게 한다. */
   .summary-callout-side{margin-bottom:0!important}
   .summary-comment-list{font-size:11.5px;line-height:1.4}
-  .summary-group{margin-bottom:4px}
-  .summary-group-label{margin-bottom:2px}
   .detail-grid{gap:7px 12px;margin-bottom:0}
   /* 상세 표를 인쇄에서 더 좁혀, 우측 추이 그래프 2개가 넓게 쓰이도록 한다. */
   #tab-sum-detail .sum-tbl col{width:70px!important}
   #tab-sum-detail .sum-tbl col:first-child{width:96px!important}
   /* 아래 두 상자는 짧은 쪽이 어느 쪽이든(문구가 늘거나 줄어도) 칸 높이를 채워,
      눈에 보이는 아래선이 항상 같은 자리에서 끝나게 한다 — 눈금을 손으로 맞추지 않는다. */
-  #tab-sum-detail .detail-grid > .tbl-box,#tab-sum-detail .detail-grid > .summary-callout{height:100%}
+  #tab-sum-detail .detail-grid > .tbl-box,#tab-sum-detail .detail-grid > .summary-cards-box{height:100%}
+  .summary-cards{gap:6px}
+  .summary-card{padding:6px 10px 7px;border-radius:8px;box-shadow:none}
+  .summary-card-hd{font-size:9.5px;margin-bottom:3px}
+  .summary-comment-list li.summary-cat{font-size:8.5px;margin-top:3px}
   /* 추이 두 개가 위로 올라오면서 아래 표가 그만큼 내려왔다 — 행 여백을 줄여 한 페이지에 담는다.
      (아래선 수평은 stretch가 맞춰주므로, 예전처럼 높이를 손으로 맞출 필요가 없다) */
   /* 추이가 별도 시트로 빠져 이 시트는 표가 전부다 — 조였던 행 여백을 되돌려 읽기 편하게 둔다. */
