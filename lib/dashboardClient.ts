@@ -608,7 +608,8 @@ export function initDashboard(data: DashboardData): () => void {
     const total = values.reduce((a, b) => a + b, 0) || 1;
     const config: any = {
       type: "doughnut",
-      data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: "#fff" }] },
+      // hoverOffset — 커서를 올린 조각만 바깥으로 밀어내 어느 조각을 보고 있는지 분명히 한다.
+      data: { labels, datasets: [{ data: values, backgroundColor: colors, borderWidth: 2, borderColor: "#fff", hoverOffset: 12, hoverBorderColor: "#fff" }] },
       options: {
         responsive: true,
         maintainAspectRatio: false,
@@ -703,7 +704,7 @@ export function initDashboard(data: DashboardData): () => void {
       plugins: [centerAndPct],
       data: {
         labels,
-        datasets: [{ data: values, backgroundColor: ALLOC_DONUT_COLORS, borderWidth: 2, borderColor: "#fff" }],
+        datasets: [{ data: values, backgroundColor: ALLOC_DONUT_COLORS, borderWidth: 2, borderColor: "#fff", hoverOffset: 12, hoverBorderColor: "#fff" }],
       },
       options: {
         responsive: true,
@@ -1465,7 +1466,7 @@ export function initDashboard(data: DashboardData): () => void {
           const level = l.startsWith("*") ? "detail" : l.startsWith("-") ? "sub" : "main";
           const body = (level === "main" ? l : l.slice(1).trim()).replace(/\n/g, "<br>");
           if (level === "detail") return `<li class="summary-comment-detail">${body}</li>`;
-          if (level === "sub") return `<li class="summary-comment-sub"><span class="summary-comment-dash"></span>${body}</li>`;
+          if (level === "sub") return `<li class="summary-comment-sub"><span class="summary-comment-submark"></span>${body}</li>`;
           return `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;
         })
         .join("") +
@@ -1573,41 +1574,24 @@ export function initDashboard(data: DashboardData): () => void {
     const pickAlloc = (m: string, f: AllocSeriesKey) =>
       data.byMonth[m].allocationBoard.actual.find((r) => r.label === "Total")?.[f] || 0;
     // 선 색은 Humax합계의 구성비 도넛과 같은 팔레트를 쓴다 (같은 배부 항목이 시트마다 달라 보이지 않게).
-    const allocDataset = (
-      key: AllocSeriesKey,
-      values: number[],
-      emphasized: number[] = [],
-      memos: (string | undefined)[] = []
-    ) => {
+    const allocDataset = (key: AllocSeriesKey, values: number[]) => {
       const color = ALLOC_SERIES_COLOR[key];
       return {
-      label: ALLOC_SERIES_LABEL[key],
-      data: values,
-      borderColor: color,
-      backgroundColor: color,
-      tension: 0.3,
-      // 보정한 월만 점을 키우고 속을 비워, 어느 지점이 옮겨졌는지 그래프에서 바로 보이게 한다.
-      pointRadius: values.map((_, i) => (emphasized.includes(i) ? 4.5 : 2.5)),
-      pointBackgroundColor: values.map((_, i) => (emphasized.includes(i) ? "#ffffff" : color)),
-      pointBorderWidth: values.map((_, i) => (emphasized.includes(i) ? 2 : 1)),
-      // 메모가 붙은 점은 커서를 정확히 맞추지 않아도 잡히게 판정 범위를 넓힌다.
-      pointHitRadius: values.map((_, i) => (memos[i] ? 12 : 4)),
-      borderWidth: 2,
-      // 툴팁에서 읽어 쓰는 값 (lineChartMulti의 afterBody 콜백).
-      memos,
+        label: ALLOC_SERIES_LABEL[key],
+        data: values,
+        borderColor: color,
+        backgroundColor: color,
+        tension: 0.3,
+        pointRadius: 2.5,
+        pointBackgroundColor: color,
+        pointBorderWidth: 1,
+        borderWidth: 2,
       };
     };
 
-    queueChart("sum-detail", "detailAllocTrend", () =>
-      lineChartMulti(
-        "detailAllocTrend",
-        months,
-        ALLOC_TREND_SERIES.map((key) => allocDataset(key, months.map((m) => pickAlloc(m, key))))
-      )
-    );
-
-    // 왜곡 수정ver — 원장 값은 그대로 두고, 회계 처리 시기 오류만 되돌려 추세를 읽을 수 있게 한다.
-    // 보정 대상 월이 조회 구간(months)에 없으면 그 건은 적용하지 않는다 (아직 안 지난 달 등).
+    // 왜곡 보정은 따로 그리지 않고 같은 그래프 위에 점선으로 겹친다 — 보정 전후를 잇대어 보려면
+    // 그림이 둘로 나뉘어 있으면 안 되기 때문이다. 원장 값(실선)은 그대로 두고 값이 달라지는 구간만
+    // 점선으로 우회시킨다. 보정 대상 월이 조회 구간에 없으면 그 건은 적용하지 않는다.
     const appliedAdj = ALLOC_TREND_ADJUSTMENTS.filter((adj) => {
       const sum = adj.deltas.reduce((s, d) => s + d.amountMillion, 0);
       if (sum !== 0) {
@@ -1626,32 +1610,55 @@ export function initDashboard(data: DashboardData): () => void {
       return hit.length ? hit.map((memo) => memo.text).join("\n") : undefined;
     };
 
-    queueChart("sum-detail", "detailAllocTrendAdj", () => {
-      const deltaOf = (key: AllocSeriesKey, month: string) =>
-        appliedAdj
-          .filter((adj) => adj.series === key)
-          .flatMap((adj) => adj.deltas)
-          .filter((d) => d.month === month)
-          .reduce((s, d) => s + d.amountMillion * 1e6, 0);
-      return lineChartMulti(
-        "detailAllocTrendAdj",
-        months,
-        ALLOC_TREND_SERIES.map((key) =>
-          allocDataset(
-            key,
-            months.map((m) => pickAlloc(m, key) + deltaOf(key, m)),
-            months.map((m, i) => (deltaOf(key, m) !== 0 ? i : -1)).filter((i) => i >= 0),
-            months.map((m) => memoOf(key, m))
-          )
-        )
-      );
-    });
+    const deltaOf = (key: AllocSeriesKey, month: string) =>
+      appliedAdj
+        .filter((adj) => adj.series === key)
+        .flatMap((adj) => adj.deltas)
+        .filter((d) => d.month === month)
+        .reduce((s, d) => s + d.amountMillion * 1e6, 0);
+
+    /**
+     * 보정선(점선) — 값이 달라지는 달과 그 앞뒤 한 달까지만 값을 담고 나머지는 null로 둔다.
+     * 앞뒤 한 달은 원장 값과 같아서 점선이 실선 위에서 갈라졌다 다시 붙는 모양이 된다.
+     * 점은 실제로 옮겨진 달에만 흰 속으로 찍고, 거기에 메모를 매단다.
+     */
+    const adjOverlay = (key: AllocSeriesKey) => {
+      const moved = months.map((m, i) => (deltaOf(key, m) !== 0 ? i : -1)).filter((i) => i >= 0);
+      if (moved.length === 0) return null;
+      const from = Math.max(0, Math.min(...moved) - 1);
+      const to = Math.min(months.length - 1, Math.max(...moved) + 1);
+      const color = ALLOC_SERIES_COLOR[key];
+      return {
+        label: `${ALLOC_SERIES_LABEL[key]} 왜곡 수정`,
+        data: months.map((m, i) => (i >= from && i <= to ? pickAlloc(m, key) + deltaOf(key, m) : null)),
+        borderColor: color,
+        backgroundColor: color,
+        borderDash: [5, 4],
+        borderWidth: 2,
+        tension: 0.3,
+        pointRadius: months.map((_, i) => (moved.includes(i) ? 4.5 : 0)),
+        pointBackgroundColor: "#ffffff",
+        pointBorderColor: color,
+        pointBorderWidth: 2,
+        // 메모가 붙은 점은 커서를 정확히 맞추지 않아도 잡히게 판정 범위를 넓힌다.
+        pointHitRadius: months.map((_, i) => (moved.includes(i) ? 12 : 0)),
+        // 툴팁에서 읽어 쓰는 값 (lineChartMulti의 afterBody 콜백).
+        memos: months.map((m, i) => (moved.includes(i) ? memoOf(key, m) : undefined)),
+      };
+    };
+
+    queueChart("sum-detail", "detailAllocTrend", () =>
+      lineChartMulti("detailAllocTrend", months, [
+        ...ALLOC_TREND_SERIES.map((key) => allocDataset(key, months.map((m) => pickAlloc(m, key)))),
+        ...ALLOC_TREND_SERIES.map(adjOverlay).filter((d): d is NonNullable<typeof d> => d !== null),
+      ])
+    );
 
     // 그래프 아래에는 이 그림이 원장 그대로가 아니라는 각주 한 줄만 남긴다.
     // 무엇을 어떻게 되돌렸는지는 보정 지점에 커서를 올리면 뜨는 메모로 옮겼다.
     setHtml(
       "detailAllocTrendAdjNote",
-      appliedAdj.length === 0 ? "" : `<div class="detail-trend-note-item">*원장에 반영되지 않은 수정</div>`
+      appliedAdj.length === 0 ? "" : `<div class="detail-trend-note-item">*점선 = 원장에 반영되지 않은 수정</div>`
     );
 
     renderSummaryDetailBox("sumDetailComment");

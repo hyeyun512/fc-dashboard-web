@@ -139,7 +139,8 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 /* 하위·상세가 있는 목록은 여러 열로 흘리지 않는다 (하위가 제 부모 아래에 와야 뜻이 통한다) */
 .summary-comment-list-stacked{grid-template-columns:1fr}
 .summary-comment-list li.summary-comment-sub{color:#64748b;font-size:12.5px;padding-left:13px;margin-top:-3px}
-.summary-comment-dash{width:6px;height:1.5px;border-radius:1px;background:#cbd5e1;flex:none;margin-top:9px}
+/* 하위 표시는 상위의 채운 점과 같은 모양의 '빈 고리' — 같은 계열인데 한 단계 아래임이 바로 읽힌다. */
+.summary-comment-submark{width:6px;height:6px;border-radius:50%;border:1.5px solid #cbd5e1;background:transparent;box-sizing:border-box;flex:none;margin-top:6px}
 .summary-comment-list li.summary-comment-detail{color:#94a3b8;font-size:12px;padding-left:26px;margin-top:-4px}
 /* 표 우측에 세로로 붙는 형태 (Humax합계의 당월/당월누계 표 각각에 하나씩). */
 .summary-callout-side{margin-bottom:0}
@@ -157,6 +158,8 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
    아래 두 상자는 stretch로 칸 높이를 채워 아래 선이 한 줄로 끝난다. */
 .detail-grid{display:grid;grid-template-columns:minmax(0,auto) minmax(420px,1fr);gap:12px 16px;align-items:stretch;margin-bottom:16px}
 .detail-grid > *{min-width:0}
+/* 추이는 한 장으로 합쳐 폭을 다 쓴다 — 보고서에서 가장 먼저 보는 그림이라 크게 둔다. */
+.detail-grid > .detail-trend-panel{grid-column:1 / -1}
 .detail-grid > .tbl-box,.detail-grid > .summary-callout{margin-bottom:0;height:100%}
 .detail-trend-panel{padding:12px 16px}
 .detail-trend-hd{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
@@ -164,7 +167,7 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .detail-trend-hd .legend{margin-top:0;gap:10px}
 .detail-trend-hd .leg{font-size:10.5px}
 .detail-trend-tag{font-size:10.5px;font-weight:700;color:#94a3b8;background:#f1f5f9;border:0.5px solid #e2e8f0;border-radius:20px;padding:2px 9px}
-.detail-trend-wrap{position:relative;height:230px;min-width:0}
+.detail-trend-wrap{position:relative;height:260px;min-width:0}
 /* 캔버스를 흐름에서 빼 둔다 — 왼쪽 칸은 표 너비(auto)로 정해져야 하는데,
    캔버스가 흐름에 있으면 제 너비로 칸을 밀어 키우고 그 폭에 맞춰 다시 커지는 일이 생긴다. */
 .detail-trend-wrap > canvas{position:absolute;left:0;top:0}
@@ -354,7 +357,10 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-sum-detail .detail-grid > .tbl-box,#tab-sum-detail .detail-grid > .summary-callout{height:100%}
   /* 추이 두 개가 위로 올라오면서 아래 표가 그만큼 내려왔다 — 행 여백을 줄여 한 페이지에 담는다.
      (아래선 수평은 stretch가 맞춰주므로, 예전처럼 높이를 손으로 맞출 필요가 없다) */
-  #tab-sum-detail .pl-tbl td{padding:2px 10px!important}
+  #tab-sum-detail .pl-tbl td{padding:1px 10px!important}
+  /* 추이를 한 장으로 키운 만큼 표를 조금 더 조인다 — 19행짜리라 한 줄에서 아낀 값이 크게 돌아온다. */
+  #tab-sum-detail .sum-tbl td{font-size:11px}
+  #tab-sum-detail .sum-tbl th{font-size:9.5px}
   /* 상세 시트는 항목이 3개(STB/공통/건물)라 줄이 가장 많다 — 줄 간격을 한 단계 더 좁혀
      상세 코멘트가 붙은 달에도 가로 한 페이지(733px) 안에 들어오게 한다. */
   #tab-sum-detail .summary-comment-list{font-size:10px;line-height:1.30;gap:3px 20px}
@@ -364,10 +370,10 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
      (6월 기준 좌우 모두 637px에서 끝나고, 문구가 늘어날 여유가 96px 남는다). */
   .detail-trend-panel{padding:6px 10px}
   .detail-trend-hd{margin-bottom:4px}
-  .detail-trend-wrap{height:92px}
+  .detail-trend-wrap{height:150px}
   .detail-trend-title{font-size:11.5px}
   .summary-comment-list li.summary-comment-sub{font-size:9.5px;margin-top:-1px;padding-left:9px}
-  .summary-comment-dash{margin-top:6px}
+  .summary-comment-submark{width:5px;height:5px;border-width:1px;margin-top:4px}
   .summary-comment-list li.summary-comment-detail{font-size:8px;margin-top:-2px;padding-left:18px}
   .detail-trend-note{margin-top:3px;padding-top:3px;font-size:8.5px;line-height:1.28}
   .detail-trend-note-item{margin-top:1px}

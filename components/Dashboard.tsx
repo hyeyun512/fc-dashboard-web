@@ -18,6 +18,11 @@ function AllocTrendLegend() {
           {ALLOC_SERIES_LABEL[key]}
         </span>
       ))}
+      {/* 점선은 계열이 아니라 '보정된 구간'이라 색 없이 회색으로 둔다. */}
+      <span className="leg">
+        <span className="leg-line dash" style={{ borderColor: "#94a3b8" }} />
+        왜곡 수정
+      </span>
     </span>
   );
 }
@@ -233,6 +238,9 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             아래는 그 근거가 되는 표와 Summary를 좌우로 둔다. 아래 두 상자는 칸 높이를 꽉 채워
             아래 선이 한 줄로 맞는다 (칸만 늘리면 안쪽 상자가 짧아 선이 어긋나 보인다). */}
         <div className="detail-grid">
+          {/* 원장 그대로의 추이 위에, 회계 처리 시기 오류로 튄 구간만 점선으로 겹쳐 그린다.
+              보정 내역은 lib/trendAdjustments.ts에 선언해두고 차트와 메모가 같은 값을 쓰게 하며,
+              점 위에 뜨는 메모 문구는 "Summary 작성용.xlsx"에서 관리한다 (SUMMARY_TREND_MEMOS). */}
           <div className="panel detail-trend-panel">
             <div className="detail-trend-hd">
               <span className="detail-trend-title">월별 배부액 추이</span>
@@ -240,19 +248,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             </div>
             <div className="detail-trend-wrap">
               <canvas id="detailAllocTrend" />
-            </div>
-          </div>
-
-          {/* 회계 처리 시기 오류로 튄 월을 되돌린 추이. 보정 내역은 lib/trendAdjustments.ts에
-              선언해두고, 차트와 보정 지점 메모가 같은 값을 쓰도록 한다.
-              점 위에 뜨는 메모 문구는 "Summary 작성용.xlsx"에서 관리한다 (SUMMARY_TREND_MEMOS). */}
-          <div className="panel detail-trend-panel">
-            <div className="detail-trend-hd">
-              <span className="detail-trend-title">월별 배부액 추이 (왜곡 수정ver)</span>
-              <AllocTrendLegend />
-            </div>
-            <div className="detail-trend-wrap">
-              <canvas id="detailAllocTrendAdj" />
             </div>
             <div className="detail-trend-note" id="detailAllocTrendAdjNote" />
           </div>
