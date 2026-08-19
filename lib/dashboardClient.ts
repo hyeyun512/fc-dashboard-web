@@ -1643,13 +1643,11 @@ export function initDashboard(data: DashboardData): () => void {
       );
     });
 
-    // 그래프 아래에는 이 그림이 무엇인지만 한 줄로 남긴다 — 보정된 그림을 원장 수치로 오해하면 안 되기 때문이다.
-    // 무엇을 어떻게 되돌렸는지(건별 내역)는 보정 지점에 커서를 올리면 뜨는 메모로 옮겨, 그래프 아래가 길어지지 않게 했다.
+    // 그래프 아래에는 이 그림이 원장 그대로가 아니라는 각주 한 줄만 남긴다.
+    // 무엇을 어떻게 되돌렸는지는 보정 지점에 커서를 올리면 뜨는 메모로 옮겼다.
     setHtml(
       "detailAllocTrendAdjNote",
-      appliedAdj.length === 0
-        ? ""
-        : `<div class="detail-trend-note-hd">보정 내역 <span>원장 수치는 그대로 · 아래 항목만 발생 시점으로 되돌린 그래프</span></div>`
+      appliedAdj.length === 0 ? "" : `<div class="detail-trend-note-item">*원장에 반영되지 않은 수정</div>`
     );
 
     renderSummaryDetailBox("sumDetailComment");
