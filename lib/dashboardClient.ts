@@ -13,7 +13,7 @@ import type {
 } from "./types";
 import { ALLOC_TREND_ADJUSTMENTS } from "./trendAdjustments";
 import {
-  SUMMARY_TREND_NOTE,
+  SUMMARY_TREND_MEMOS,
   SUMMARY_COMMENTS,
   SUMMARY_DETAIL_GROUPS,
   type SummaryCommentKey,
@@ -463,6 +463,22 @@ export function initDashboard(data: DashboardData): () => void {
     return new Chart(canvas, config);
   }
 
+  /** Chart.js 툴팁은 글을 자동으로 접지 않아, 긴 메모는 여기서 미리 끊어 넘긴다. */
+  function wrapTooltipText(text: string, maxChars = 26): string[] {
+    const out: string[] = [];
+    let line = "";
+    for (const word of text.split(" ")) {
+      if (line && (line + " " + word).length > maxChars) {
+        out.push(line);
+        line = word;
+      } else {
+        line = line ? line + " " + word : word;
+      }
+    }
+    if (line) out.push(line);
+    return out;
+  }
+
   function lineChartMulti(canvasId: string, labels: string[], datasets: any[], extraPlugins: any[] = []): AnyChart {
     const canvas = el(canvasId) as HTMLCanvasElement;
     return new Chart(canvas, {
@@ -480,6 +496,12 @@ export function initDashboard(data: DashboardData): () => void {
                 const v = ctx.parsed.y as number | null;
                 return ctx.dataset.label + ": " + (v == null ? "-" : fmtM(v) + "백만원");
               },
+              // 엑셀에서 붙인 메모가 있는 점(왜곡 보정 지점)은 그 내용을 함께 띄운다.
+              afterBody: (items) =>
+                items.flatMap((it) => {
+                  const memo = (it.dataset as { memos?: (string | undefined)[] }).memos?.[it.dataIndex];
+                  return memo ? ["", ...memo.split("\n").flatMap((line) => wrapTooltipText(line))] : [];
+                }),
             },
           },
         },
@@ -1426,11 +1448,22 @@ export function initDashboard(data: DashboardData): () => void {
   // 그 달 문구가 없으면 빈 문자열을 넣고, CSS의 :empty 규칙이 박스째 숨긴다.
   const SUMMARY_ACCENT = "#1d4ed8";
   const summaryTitleHtml = `<div class="summary-callout-title" style="color:${SUMMARY_ACCENT}">Summary</div>`;
+  /**
+   * 한 줄 = 불릿 하나. 엑셀에서 '*'를 달아 적은 줄은 윗줄에 딸린 상세 코멘트라 불릿 없이
+   * 연한 회색으로 깔고(본문과 섞이면 어디까지가 요약인지 흐려진다), 줄 안의 줄바꿈(엑셀의 '[]')은
+   * <br>로 편다 — 한 항목 안에서 줄만 나뉘고 새 불릿이 되지는 않아야 하기 때문이다.
+   */
   function commentListHtml(lines: string[]): string {
     return (
       `<ul class="summary-comment-list">` +
       lines
-        .map((l) => `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${l}</li>`)
+        .map((l) => {
+          const isDetail = l.startsWith("*");
+          const body = (isDetail ? l.slice(1).trim() : l).replace(/\n/g, "<br>");
+          return isDetail
+            ? `<li class="summary-comment-detail">${body}</li>`
+            : `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;
+        })
         .join("") +
       `</ul>`
     );
@@ -1536,7 +1569,12 @@ export function initDashboard(data: DashboardData): () => void {
     const pickAlloc = (m: string, f: AllocSeriesKey) =>
       data.byMonth[m].allocationBoard.actual.find((r) => r.label === "Total")?.[f] || 0;
     // 선 색은 Humax합계의 구성비 도넛과 같은 팔레트를 쓴다 (같은 배부 항목이 시트마다 달라 보이지 않게).
-    const allocDataset = (key: AllocSeriesKey, values: number[], emphasized: number[] = []) => {
+    const allocDataset = (
+      key: AllocSeriesKey,
+      values: number[],
+      emphasized: number[] = [],
+      memos: (string | undefined)[] = []
+    ) => {
       const color = ALLOC_SERIES_COLOR[key];
       return {
       label: ALLOC_SERIES_LABEL[key],
@@ -1548,7 +1586,11 @@ export function initDashboard(data: DashboardData): () => void {
       pointRadius: values.map((_, i) => (emphasized.includes(i) ? 4.5 : 2.5)),
       pointBackgroundColor: values.map((_, i) => (emphasized.includes(i) ? "#ffffff" : color)),
       pointBorderWidth: values.map((_, i) => (emphasized.includes(i) ? 2 : 1)),
+      // 메모가 붙은 점은 커서를 정확히 맞추지 않아도 잡히게 판정 범위를 넓힌다.
+      pointHitRadius: values.map((_, i) => (memos[i] ? 12 : 4)),
       borderWidth: 2,
+      // 툴팁에서 읽어 쓰는 값 (lineChartMulti의 afterBody 콜백).
+      memos,
       };
     };
 
@@ -1572,6 +1614,14 @@ export function initDashboard(data: DashboardData): () => void {
       return adj.deltas.every((d) => months.includes(d.month));
     });
 
+    // 보정 지점에 붙는 메모는 엑셀에서 받는다 — 계열 이름은 그래프 범례와 같게 적혀 있다.
+    const memoOf = (key: AllocSeriesKey, month: string) => {
+      const hit = SUMMARY_TREND_MEMOS.filter(
+        (memo) => memo.series === ALLOC_SERIES_LABEL[key] && memo.months.includes(month)
+      );
+      return hit.length ? hit.map((memo) => memo.text).join("\n") : undefined;
+    };
+
     queueChart("sum-detail", "detailAllocTrendAdj", () => {
       const deltaOf = (key: AllocSeriesKey, month: string) =>
         appliedAdj
@@ -1586,31 +1636,21 @@ export function initDashboard(data: DashboardData): () => void {
           allocDataset(
             key,
             months.map((m) => pickAlloc(m, key) + deltaOf(key, m)),
-            months.map((m, i) => (deltaOf(key, m) !== 0 ? i : -1)).filter((i) => i >= 0)
+            months.map((m, i) => (deltaOf(key, m) !== 0 ? i : -1)).filter((i) => i >= 0),
+            months.map((m) => memoOf(key, m))
           )
         )
       );
     });
 
-    // 그래프 아래에 "무엇을 어떻게 되돌렸는지"를 밝힌다 — 보정된 그림만 보고 원장 수치로 오해하면 안 된다.
-    // 보정 내역은 차트를 움직인 값에서 그대로 만들어 둘이 어긋날 수 없게 하고,
-    // 그래프를 건드리지 않는 설명(일회성 비용 등)은 엑셀에서 받아 '참고'로 따로 붙인다.
-    const signed = (v: number) => (v > 0 ? `+${v}` : `${v}`);
-    const adjNoteHtml =
+    // 그래프 아래에는 이 그림이 무엇인지만 한 줄로 남긴다 — 보정된 그림을 원장 수치로 오해하면 안 되기 때문이다.
+    // 무엇을 어떻게 되돌렸는지(건별 내역)는 보정 지점에 커서를 올리면 뜨는 메모로 옮겨, 그래프 아래가 길어지지 않게 했다.
+    setHtml(
+      "detailAllocTrendAdjNote",
       appliedAdj.length === 0
         ? ""
-        : `<div class="detail-trend-note-hd">보정 내역 <span>원장 수치는 그대로 · 아래 항목만 발생 시점으로 되돌린 그래프</span></div>` +
-          appliedAdj
-            .map((adj) => {
-              const moves = adj.deltas.map((d) => `${d.month} ${signed(d.amountMillion)}백만`).join(", ");
-              return `<div class="detail-trend-note-item"><b>${ALLOC_SERIES_LABEL[adj.series]} · ${adj.label}</b> ${moves} (${adj.reason})</div>`;
-            })
-            .join("");
-    const trendNoteHtml = SUMMARY_TREND_NOTE.length
-      ? `<div class="detail-trend-note-hd${adjNoteHtml ? " detail-trend-note-hd-2nd" : ""}">참고 <span>그래프에 반영하지 않은 설명</span></div>` +
-        SUMMARY_TREND_NOTE.map((line) => `<div class="detail-trend-note-item">${line}</div>`).join("")
-      : "";
-    setHtml("detailAllocTrendAdjNote", adjNoteHtml + trendNoteHtml);
+        : `<div class="detail-trend-note-hd">보정 내역 <span>원장 수치는 그대로 · 아래 항목만 발생 시점으로 되돌린 그래프</span></div>`
+    );
 
     renderSummaryDetailBox("sumDetailComment");
 

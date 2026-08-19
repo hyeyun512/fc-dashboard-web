@@ -134,6 +134,9 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .summary-comment-list{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px 24px;font-size:13px;line-height:1.55;color:#374151}
 .summary-comment-list li{display:flex;align-items:flex-start;gap:8px;margin:0}
 .summary-comment-dot{width:5px;height:5px;border-radius:50%;flex:none;margin-top:7px}
+/* 엑셀에서 '*'를 달아 적은 줄 — 윗줄에 딸린 상세 코멘트라 불릿 없이 한 칸 들여 흐리게 깐다
+   (요약 한 줄과 그 근거를 같은 굵기로 두면 어디까지가 요약인지 흐려진다) */
+.summary-comment-list li.summary-comment-detail{color:#94a3b8;font-size:12px;padding-left:13px;margin-top:-4px}
 /* 표 우측에 세로로 붙는 형태 (Humax합계의 당월/당월누계 표 각각에 하나씩). */
 .summary-callout-side{margin-bottom:0}
 .summary-callout-side .summary-comment-list{grid-template-columns:1fr;gap:9px}
@@ -346,7 +349,9 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
      채우게 해, 눈에 보이는 아래선이 항상 같은 자리에서 끝나게 한다. */
   #tab-sum-detail .detail-side > .summary-callout{flex:1}
   #tab-sum-detail .pl-tbl td{padding:4px 10px!important}
-  #tab-sum-detail .summary-comment-list{font-size:10px;line-height:1.30}
+  /* 상세 시트는 항목이 3개(STB/공통/건물)라 줄이 가장 많다 — 줄 간격을 한 단계 더 좁혀
+     상세 코멘트가 붙은 달에도 가로 한 페이지(733px) 안에 들어오게 한다. */
+  #tab-sum-detail .summary-comment-list{font-size:10px;line-height:1.30;gap:3px 20px}
   #tab-sum-detail .summary-comment-list li{gap:6px}
   /* Summary가 항목당 3줄로 늘고 하단에 보정 내역·참고까지 붙어, 우측 칸이 인쇄 한 페이지(733px)를
      넘겼다. 그래프 크기와 본문 글자 중 어느 하나만 깎지 않도록 양쪽을 조금씩 줄인다
@@ -355,6 +360,7 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .detail-trend-hd{margin-bottom:4px}
   .detail-trend-wrap{height:76px}
   .detail-trend-title{font-size:11.5px}
+  .summary-comment-list li.summary-comment-detail{font-size:8px;margin-top:-2px;padding-left:9px}
   .detail-trend-note{margin-top:3px;padding-top:3px;font-size:8.5px;line-height:1.28}
   .detail-trend-note-hd{margin-bottom:1px}
   .detail-trend-note-item{margin-top:1px}

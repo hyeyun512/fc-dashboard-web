@@ -11,10 +11,17 @@
     · 구분   : Humax합계_상세에서만 사용 (STB / HUMAX(공통) / 건물). 나머지는 비워둔다
     · Summary: 한 셀 안에 Alt+Enter로 줄바꿈, 줄마다 "- "로 시작 (하이픈은 있어도 없어도 된다)
 
-  '왜곡 수정ver' 그래프 하단 노트도 여기서 관리한다 — 탭에 'Humax합계_상세',
-  구분에 '월별 배부액 추이'를 적으면 SUMMARY_TREND_NOTE로 나간다. 이 줄들은 그래프 아래
-  '참고' 블록에 그대로 붙고, 그 위의 '보정 내역'은 lib/trendAdjustments.ts에서 자동 생성된다
-  (보정 수치와 설명이 어긋나지 않도록 자동 생성분은 엑셀로 덮지 않는다).
+  [셀 안에서 쓰는 표기]
+    · []  : 그 자리에서 줄을 바꾼다 (한 불릿 안에서 줄만 나뉘고, 새 불릿이 되지는 않는다)
+    · *   : 그 줄은 상세 코멘트 — 화면에서 연한 회색으로 흐리게 깔린다 (윗줄에 딸린 부연)
+
+  '왜곡 수정ver' 그래프의 보정 지점 메모도 여기서 관리한다 — 탭에 'Humax합계_상세',
+  구분에 '월별 배부액 추이'를 적고 줄마다 아래 형식으로 쓰면 SUMMARY_TREND_MEMOS로 나간다.
+      [STB] 4월, 5월: STB License Fee/Nagra 4월 -84백만, 5월 +84백만 (선급비용 결산 조정 지연)
+       ^계열  ^월(쉼표로 여러 개)  ^그 점에 커서를 올리면 뜨는 메모
+  계열 이름은 그래프 범례와 같게 적는다 (STB / HUMAX(공통) / 건물). 이 행에서 '*'로 시작하는
+  줄은 작성자용 메모로 보고 화면에 내보내지 않는다. 그래프 아래 '보정 내역' 머리글은
+  lib/trendAdjustments.ts 값에서 자동 생성된다.
 
   엑셀 의존성 없이 xlsx(=zip+xml)를 직접 읽으므로, 파일이 엑셀에서 열려 있어도 동작한다.
 
@@ -136,13 +143,19 @@ function Normalize([string]$s) {
   return ($s -replace "[①②③④⑤\s]", "").ToLowerInvariant()
 }
 
-# 한 셀 안의 여러 줄을 불릿 목록으로 자른다. 줄머리 기호(-, ·, •, *)와 공백은 떼어낸다.
+# 한 셀 안의 여러 줄을 불릿 목록으로 자른다. 줄머리 기호(-, ·, •)와 공백은 떼어낸다.
 # "- " 처럼 뒤에 공백이 있을 때만 벗겨서, "-454는 ..." 같이 음수로 시작하는 문장이 망가지지 않게 한다.
+# '*'는 지우지 않는다 — 화면에서 상세 코멘트(연한 회색)로 구분하는 표시라 그대로 넘겨야 한다.
+# '[]'는 '여기서 줄을 바꿔라'는 표시라 실제 줄바꿈으로 바꾼다.
 function Split-Lines([string]$text) {
   if (-not $text) { return @() }
   return @(
     $text -split "`r`n|`n|`r" |
-      ForEach-Object { ($_ -replace "^\s*(?:[-*][ \t]+|[•·][ \t]*)", "").Trim() } |
+      ForEach-Object {
+        $line = ($_ -replace "^\s*(?:-[ \t]+|[•·][ \t]*)", "").Trim()
+        $line = $line -replace "^\*[ \t]*", "*"
+        (($line -split "\[\]") | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" }) -join "`n"
+      } |
       Where-Object { $_ -ne "" }
   )
 }
@@ -150,7 +163,7 @@ function Split-Lines([string]$text) {
 # 화면 상단 '보고 월'에 따라 Summary가 바뀌므로, 모든 내용을 월(B열)별로 나눠 담는다.
 $boxesByMonth = @{}                                       # "6월" → @{ key = string[] }
 $detailByMonth = @{}                                      # "6월" → List(구분, 줄들) — 시트 순서 유지
-$trendNote = @()                                          # '왜곡 수정ver' 그래프 하단 '참고' (월 무관)
+$trendMemos = New-Object System.Collections.Generic.List[object]   # '왜곡 수정ver' 그래프 보정 지점 메모 (월 무관)
 $seenRows = 0
 
 # 기간 표기에서 월만 뽑는다 — "6월" / "6월 누계" 모두 "6월"이 된다.
@@ -189,8 +202,22 @@ foreach ($entry in $rows) {
   if ($tabKey -like "*상세*") {
     if (-not $group) { throw "행 ${rowNum}: 'Humax합계_상세'는 구분(C열)이 비어 있으면 안 됩니다." }
     if ($isTrendNote) {
-      if ($trendNote.Count -gt 0) { throw "행 ${rowNum}: '월별 배부액 추이' 행이 두 번 나옵니다. 한 행에 모아 주세요." }
-      $trendNote = $lines
+      if ($trendMemos.Count -gt 0) { throw "행 ${rowNum}: '월별 배부액 추이' 행이 두 번 나옵니다. 한 행에 모아 주세요." }
+      foreach ($line in $lines) {
+        # '*' 줄은 작성자용 메모(지시문)라 화면에 내보내지 않는다.
+        if ($line.StartsWith("*")) { continue }
+        $m = [regex]::Match($line, '^\[([^\]]+)\]\s*([^:\uFF1A\n]+)[:\uFF1A]\s*([\s\S]+)$')
+        if (-not $m.Success) {
+          Write-Warning ("행 {0}: '[STB] 4월, 5월: 내용' 형식이 아니라 건너뜁니다 - {1}" -f $rowNum, $line)
+          continue
+        }
+        $memoMonths = @($m.Groups[2].Value -split ',' | ForEach-Object { $_.Trim() } | Where-Object { $_ -ne "" })
+        $trendMemos.Add([pscustomobject]@{
+          Series = $m.Groups[1].Value.Trim()
+          Months = $memoMonths
+          Text   = $m.Groups[3].Value.Trim()
+        })
+      }
     } else {
       $detailByMonth[$month].Add([pscustomobject]@{ Label = $group; Lines = $lines })
     }
@@ -219,7 +246,8 @@ foreach ($mo in $months) {
 }
 
 function Escape-TS([string]$s) {
-  return $s.Replace("\", "\\").Replace('"', '\"')
+  # 백슬래시 → 따옴표 → 줄바꿈 순서로 바꾼다 (앞에서 만든 escape를 뒤에서 다시 건드리지 않도록).
+  return $s.Replace("\", "\\").Replace('"', '\"').Replace("`r", "").Replace("`n", "\n")
 }
 
 $sb = New-Object System.Text.StringBuilder
@@ -267,15 +295,19 @@ foreach ($mo in $months) {
 W '};'
 W ''
 W '/**'
-W " * '월별 배부액 추이 (왜곡 수정ver)' 그래프 하단 '참고' 블록."
+W " * '월별 배부액 추이 (왜곡 수정ver)' 그래프의 보정 지점에 붙는 메모."
 W ' *'
-W ' * 그 위의 "보정 내역"은 lib/trendAdjustments.ts 값에서 자동 생성된다 — 차트를 움직인 숫자와'
-W ' * 설명이 어긋나면 안 되기 때문이다. 여기에는 보정 대상이 아닌 것(제 달에 제대로 기표됐지만'
-W ' * 반복되지 않는 일회성 비용 등), 즉 그래프는 그대로 두고 말로만 짚어야 할 내용을 적는다.'
-W ' * 비어 있으면 참고 블록 자체가 표시되지 않는다.'
+W ' * 그래프에서 점을 키워 표시한 보정 지점에 커서를 올리면 이 문구가 뜬다. 무엇을 어떻게'
+W ' * 되돌렸는지는 그래프 아래 한 줄(보정 내역)로만 밝히고, 자세한 내용은 여기로 옮겨'
+W ' * 그림을 가리지 않게 했다. 보정 자체(움직인 금액)는 lib/trendAdjustments.ts가 갖고 있다.'
 W ' */'
-W 'export const SUMMARY_TREND_NOTE: string[] = ['
-foreach ($line in $trendNote) { W ("  `"" + (Escape-TS $line) + "`",") }
+W 'export type SummaryTrendMemo = { series: string; months: string[]; text: string };'
+W ''
+W 'export const SUMMARY_TREND_MEMOS: SummaryTrendMemo[] = ['
+foreach ($memo in $trendMemos) {
+  $monthList = ($memo.Months | ForEach-Object { '"' + (Escape-TS $_) + '"' }) -join ", "
+  W ('  { series: "' + (Escape-TS $memo.Series) + '", months: [' + $monthList + '], text: "' + (Escape-TS $memo.Text) + '" },')
+}
 W '];'
 W ''
 W '/** 월("6월") → Summary①·② 박스 문구. */'
@@ -308,4 +340,4 @@ foreach ($mo in $months) {
   Write-Host ("  [{0}] {1}" -f $mo, ($parts -join ", "))
   if ($det) { Write-Host ("        상세: {0}" -f $det) }
 }
-Write-Host ("  월별 배부액 추이(참고) : {0}줄 (월 무관)" -f $trendNote.Count)
+Write-Host ("  월별 배부액 추이(메모) : {0}건 (월 무관)" -f $trendMemos.Count)
