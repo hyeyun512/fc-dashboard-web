@@ -295,10 +295,9 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="sheet-title">전사 상세</div>
           </div>
         </div>
-        <div id="summaryInsight" />
-        <div className="kpi-row" id="summaryKpis" />
-
-        <div className="chart-2eq">
+        {/* 요약 수치·추이·구성비를 한 줄에 둔다 — 부록은 훑어보는 장이라 세로로 쌓지 않는다. */}
+        <div className="appx-top-row">
+          <div id="summaryKpis" />
           <div className="panel" style={{ marginBottom: 0 }}>
             <div className="panel-hd">
               <div>
@@ -358,10 +357,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="sheet-title">EVCS(사업부) 상세</div>
           </div>
         </div>
-        <div id="evcsInsight" />
-        <div className="kpi-row" id="evcsKpis" />
-
-        <div className="chart-2eq">
+        <div className="appx-top-row">
+          <div id="evcsKpis" />
           <div className="panel" style={{ marginBottom: 0 }}>
             <div className="panel-hd">
               <div>
@@ -475,7 +472,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="sheet-title">전사 계정별</div>
           </div>
         </div>
-        <div id="catInsight" />
         <div className="tbl-box">
           <div className="tbl-hd">
             구분별 상세 <span className="sub" id="catTblSub" />
@@ -484,19 +480,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div id="categoryTable" />
           </div>
         </div>
-        <div className="panel">
-          <div className="panel-hd">
-            <div>
-              <div className="panel-title">구분별 예산 vs 실적</div>
-              <div className="panel-sub">백만원 · 전사 기준</div>
-            </div>
-            <div className="legend" id="catLegend" />
-          </div>
-          <div className="chart-wrap-lg">
-            <canvas id="categoryChart" />
-          </div>
-        </div>
-
         <div className="section-lead">
           대계정별 상세<span className="sub">본사 · 법인 각각 전체 대계정 기준 실적/예산 · 구분 순으로 묶어서 표시</span>
         </div>

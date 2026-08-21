@@ -32,6 +32,27 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .sheet-eyebrow{font-size:11px;font-weight:700;letter-spacing:.6px;text-transform:uppercase;color:#94a3b8;margin-bottom:2px}
 .sheet-title{font-size:19px;font-weight:800;color:#1a202c}
 .kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:16px}
+/* 부록 A·B 맨 윗줄 — 요약 수치 / 추이 / 구성비를 한 줄에 둔다 (훑어보는 장이라 세로로 쌓지 않는다). */
+.appx-top-row{display:grid;grid-template-columns:minmax(180px,0.62fr) 1.5fr 1fr;gap:14px;align-items:stretch;margin-bottom:16px}
+.appx-top-row > *{min-width:0}
+.appx-top-row .chart-wrap-lg{height:210px}
+/* 실적·예산·집행률을 세로로 쌓은 요약 상자. 기간은 머리에 한 번만 적는다. */
+.kstack{display:flex;flex-direction:column;justify-content:center;gap:9px;padding:14px 16px 14px 19px;height:100%}
+.kstack-hd{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.3px}
+.kstack-item .klabel{font-size:10.5px;margin-bottom:2px}
+.kstack-item .kval{font-size:21px}
+.kstack-item .ksub{margin-top:1px;font-size:11px}
+.kstack-item .kbadge{margin-top:3px}
+/* 부록 D 맨 위 — 배부 항목 여섯을 가로 한 줄 카드로. 위쪽 띠 색이 항목 색이다. */
+.alloc-cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:16px}
+.alloc-card{background:#fff;border:0.5px solid #e6eaf0;border-top:3px solid #64748b;border-radius:10px;
+  padding:9px 12px 10px;box-shadow:0 1px 2px rgba(15,23,42,.05)}
+.alloc-card-hd{font-size:11px;font-weight:700;color:#475569;letter-spacing:.2px;margin-bottom:4px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.alloc-card-val{font-size:17px;font-weight:700;color:#1a202c;line-height:1.15;white-space:nowrap}
+.alloc-card-unit{font-size:10.5px;font-weight:600;color:#94a3b8;margin-left:3px}
+.alloc-card-quiet{font-size:13px;color:#94a3b8}
+.alloc-card-sub{font-size:10.5px;color:#94a3b8;margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .chart-2col{display:grid;grid-template-columns:1.15fr 0.85fr;gap:16px;margin-bottom:16px}
 .chart-2col.rev{grid-template-columns:0.85fr 1.15fr}
 .chart-2eq{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:16px}
@@ -335,6 +356,17 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
      (Appendix A는 이 설정으로 가로 한 페이지에 들어간다. B는 대계정 행이 많아 2페이지로 나뉜다.) */
   #tab-summary .callout,#tab-evcs .callout,#tab-category .callout{padding:7px 12px;font-size:11px;margin-bottom:8px}
   #tab-summary .kpi-row,#tab-evcs .kpi-row{margin-bottom:8px}
+  .appx-top-row{gap:8px;margin-bottom:8px}
+  .appx-top-row .chart-wrap-lg{height:150px}
+  .kstack{gap:5px;padding:8px 10px 8px 12px}
+  .kstack-hd{font-size:8.5px}
+  .kstack-item .kval{font-size:14px}
+  .alloc-cards{gap:6px;margin-bottom:8px}
+  .alloc-card{padding:5px 8px 6px;border-radius:8px;box-shadow:none}
+  .alloc-card-hd{font-size:8.5px;margin-bottom:2px}
+  .alloc-card-val{font-size:12.5px}
+  .alloc-card-unit{font-size:8px}
+  .alloc-card-sub{font-size:8px;margin-top:1px}
   #tab-summary .kcard,#tab-evcs .kcard{padding:7px 14px}
   #tab-summary .klabel,#tab-evcs .klabel{font-size:9.5px;margin-bottom:1px}
   #tab-summary .kval,#tab-evcs .kval{font-size:16px}

@@ -95,8 +95,43 @@ export function initDashboard(data: DashboardData): () => void {
     if (rate < 100) return "pos";
     return "";
   }
+  /**
+   * 부록 A·B 맨 위의 요약 상자 — 실적/예산/집행률을 세로로 쌓는다.
+   * 기간(1월~6월 누계)은 상자 머리에 한 번만 적는다. 세 칸에 같은 기간을 되풀이하면
+   * 읽는 사람은 서로 다른 기간인가 하고 한 번 더 확인하게 된다.
+   */
+  function kpiStackHtml(accent: string, actual: number, budget: number, rate: number | null, momHtml = ""): string {
+    const rateText = rate === null ? "-" : rate === Infinity ? "∞" : Math.round(rate) + "%";
+    return (
+      `<div class="kcard kstack"><div class="kcard-bar" style="background:${accent}"></div>` +
+      `<div class="kstack-hd">${scopeLabel()}</div>` +
+      `<div class="kstack-item"><div class="klabel">집행 실적</div>` +
+      `<div class="kval">${fmtM(actual)}<span class="kunit"> 백만원</span></div>${momHtml}</div>` +
+      `<div class="kstack-item"><div class="klabel">예산</div>` +
+      `<div class="kval">${fmtM(budget)}<span class="kunit"> 백만원</span></div></div>` +
+      `<div class="kstack-item"><div class="klabel">집행률</div>` +
+      `<div class="kval ${rateTextClass(rate)}">${rateText}</div>` +
+      `<div class="ksub">예산 대비</div></div>` +
+      `</div>`
+    );
+  }
+
   /** 비고에 "유의미한 차이"로 볼 최소 금액. 본사/법인 모두 동일 기준 적용. */
   const REMARK_MIN_DIFF_WON = 30_000_000;
+
+  /** 부록 D에서 훑는 배부 항목 여섯 — 색은 Summary 도넛과 같은 팔레트를 써서 시트가 달라도 같은 항목은 같은 색이다. */
+  const ALLOC_TREND_DIMS: {
+    key: "stb" | "mobility" | "evcsDomestic" | "evcsOverseas" | "humaxCommon" | "sharedTotal";
+    label: string;
+    color: string;
+  }[] = [
+    { key: "stb", label: "STB", color: ALLOC_DONUT_COLORS[0] },
+    { key: "mobility", label: "Mobility", color: ALLOC_DONUT_COLORS[1] },
+    { key: "evcsDomestic", label: "EVCS(국내)", color: ALLOC_DONUT_COLORS[2] },
+    { key: "evcsOverseas", label: "EVCS(해외)", color: ALLOC_DONUT_COLORS[3] },
+    { key: "humaxCommon", label: "Humax(공통)", color: ALLOC_DONUT_COLORS[4] },
+    { key: "sharedTotal", label: "Shared", color: "#64748b" },
+  ];
   /**
    * "비고"란에 표시할, 차이를 만든 원인 항목 1~2개를 찾는다.
    * 차이 금액이 REMARK_MIN_DIFF_WON(3천만원) 이상일 때만 "유의미"로 보고 채운다.
@@ -150,78 +185,6 @@ export function initDashboard(data: DashboardData): () => void {
   /** "5. Staff부문" -> "Staff부문"처럼 구분(re) 앞의 번호를 뗀 표시용 이름. */
   function stripDeptNumber(dept: string): string {
     return dept.replace(/^\d+\.\s*/, "");
-  }
-  /** 받침 유무에 따라 "은"/"는" 조사를 고른다 (예: 본사는, 법인은). */
-  function josaEunNeun(word: string): "은" | "는" {
-    const code = word.charCodeAt(word.length - 1) - 0xac00;
-    if (code < 0 || code > 11171) return "는";
-    return code % 28 !== 0 ? "은" : "는";
-  }
-  /** 받침 유무에 따라 "로"/"으로" 조사를 고른다 (받침 없음/ㄹ받침 -> 로, 그 외 -> 으로). */
-  function josaRoEuro(word: string): "로" | "으로" {
-    const code = word.charCodeAt(word.length - 1) - 0xac00;
-    if (code < 0 || code > 11171) return "로";
-    const final = code % 28;
-    return final === 0 || final === 8 ? "로" : "으로";
-  }
-  /**
-   * 요약 코멘트 공통 생성기. Summary/계정별/EVCS 탭 모두 이 순서로 원인을 추적한다:
-   * 총합계 집행률 확인 → 본사/법인 중 괴리가 큰 쪽 확인 → 그 안에서 구분(re, 부서/법인사) 확인 → 그 구분의 주요 대계정 확인.
-   * (계정별 탭은 SummaryBlock을, EVCS 탭은 evcsSummary(EVCS 배부금 기준 SummaryBlock)를 그대로 재사용한다.)
-   */
-  function drillDownSummary(scopeLabel: string, s: SummaryBlock): string {
-    const totalDiff = s.total.actual - s.total.budget;
-    const rate = rateOf(s.total.actual, s.total.budget);
-    const totalDiffText = ` (${totalDiff >= 0 ? "+" : ""}${fmtM(totalDiff)}백만원 ${totalDiff >= 0 ? "초과" : "미달"})`;
-    const overallText =
-      rate === null
-        ? "집행 실적이 아직 없습니다"
-        : rate === Infinity
-        ? "예산 없이 집행이 발생했습니다"
-        : `전체 집행률은 ${Math.round(rate)}%${totalDiffText}로 ${rate > 105 ? "예산을 다소 초과" : rate < 95 ? "예산 대비 여유 있게" : "예산 범위 내에서 양호하게"} 집행되었습니다`;
-
-    const sides = (["본사", "법인"] as const)
-      .map((hq) => {
-        const t = s.hq_totals[hq] || { actual: 0, budget: 0 };
-        return { hq, actual: t.actual, budget: t.budget, diff: t.actual - t.budget, rate: rateOf(t.actual, t.budget) };
-      })
-      .filter((h) => h.rate !== null && (h.rate === Infinity || Math.abs(h.rate - 100) >= 5) && Math.abs(h.diff) >= REMARK_MIN_DIFF_WON)
-      .sort((a, b) => b.diff - a.diff);
-
-    if (!sides.length) {
-      return `<b>${scopeLabel} 전사 실적</b> — ${overallText}. 본사 · 법인 모두 예산 범위 내에서 안정적으로 관리되고 있습니다.`;
-    }
-
-    const sentences = sides.map((h) => {
-      const over = h.diff > 0;
-      const deptRows = s.rows
-        .filter((r) => r.hq_corp === h.hq)
-        .map((r) => ({ ...r, diff: r.actual - r.budget }))
-        .filter((r) => (over ? r.diff > 0 : r.diff < 0))
-        .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
-        .slice(0, 2);
-
-      if (!deptRows.length) {
-        return `<b>${h.hq}</b>${josaEunNeun(h.hq)} ${badgeLabel(h.rate)} 집행률로 ${over ? "예산을 초과" : "예산에 미달"} 집행했습니다 (${over ? "+" : ""}${fmtM(h.diff)}백만원).`;
-      }
-
-      const parts = deptRows.map((d) => {
-        const deptLabel = stripDeptNumber(d.dept);
-        const topAccs = d.byMainAccount
-          .map((a) => ({ label: stripAccountNumber(a.account), diff: a.actual - a.budget }))
-          .filter((a) => Math.sign(a.diff) === Math.sign(d.diff))
-          .sort((a, b) => Math.abs(b.diff) - Math.abs(a.diff))
-          .slice(0, 2)
-          .map((a) => a.label);
-        return topAccs.length ? `${deptLabel}의 ${topAccs.join(", ")}` : deptLabel;
-      });
-
-      return over
-        ? `<b>${h.hq}</b>${josaEunNeun(h.hq)} ${parts.join(", ")} 집행이 주요 원인으로 예산 대비 <b>+${fmtM(h.diff)}백만원 초과</b> 집행했습니다.`
-        : `<b>${h.hq}</b>${josaEunNeun(h.hq)} ${parts.join(", ")} 집행 미달로 예산 대비 <b>${fmtM(h.diff)}백만원</b> 미달 집행되었습니다.`;
-    });
-
-    return `<b>${scopeLabel} 전사 실적</b> — ${overallText}. ${sentences.join(" ")}`;
   }
   /**
    * 조직별 지급수수료 현황 표 위에 붙는 요약 코멘트. 전체 집행률을 먼저 밝히고, 예산 대비 유의미하게
@@ -412,12 +375,6 @@ export function initDashboard(data: DashboardData): () => void {
   document.addEventListener("fullscreenchange", onFsChange);
   updateSlideNav();
 
-  function legendHtml(pairs: [string, string][]): string {
-    return pairs
-      .map(([color, label]) => `<span class="leg"><span class="leg-dot" style="background:${color}"></span>${label}</span>`)
-      .join("");
-  }
-
   /** 실선(실적)/점선(예산)을 함께 쓰는 추이 차트용 범례. */
   function legendLineHtml(items: { color: string; label: string; dashed?: boolean }[]): string {
     return items
@@ -426,43 +383,6 @@ export function initDashboard(data: DashboardData): () => void {
           `<span class="leg"><span class="leg-line${dashed ? " dash" : ""}" style="border-color:${color}"></span>${label}</span>`
       )
       .join("");
-  }
-
-  function barChart(
-    canvasId: string,
-    labels: string[],
-    actual: number[],
-    budget: number[],
-    opts: { c1?: string; c2?: string; horizontal?: boolean } = {}
-  ): AnyChart {
-    const canvas = el(canvasId) as HTMLCanvasElement;
-    const config: any = {
-      type: "bar",
-      data: {
-        labels,
-        datasets: [
-          { label: "예산", data: budget, backgroundColor: opts.c2 || C_BUDGET, borderRadius: 4 },
-          { label: "실적", data: actual, backgroundColor: opts.c1 || C_ACTUAL, borderRadius: 4 },
-        ],
-      },
-      options: {
-        indexAxis: opts.horizontal ? "y" : "x",
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (ctx: any) => ctx.dataset.label + ": " + fmtM(ctx.parsed[opts.horizontal ? "x" : "y"] as number) + "백만원",
-            },
-          },
-        },
-        scales: opts.horizontal
-          ? { x: { ticks: { callback: (v: any) => fmtM(v as number) }, grid: { color: "#f1f5f9" } }, y: { grid: { display: false } } }
-          : { y: { ticks: { callback: (v: any) => fmtM(v as number) }, grid: { color: "#f1f5f9" } }, x: { grid: { display: false } } },
-      },
-    };
-    return new Chart(canvas, config);
   }
 
   /** Chart.js 툴팁은 글을 자동으로 접지 않아, 긴 메모는 여기서 미리 끊어 넘긴다. */
@@ -922,33 +842,8 @@ export function initDashboard(data: DashboardData): () => void {
         ? momBadgeHtml(a, data.byMonth[months[prevMonthIdx]].summary.total.actual)
         : "";
 
-    setHtml(
-      "summaryKpis",
-      `<div class="kcard kcard-combo"><div class="kcard-bar" style="background:#2563eb"></div>
-        <div class="kcombo-item">
-          <div class="klabel">집행 실적</div><div class="kval">${fmtM(a)}<span class="kunit"> 백만원</span></div>
-          <div class="ksub">${scopeLabel()}${summaryMomHtml}</div>
-        </div>
-        <div class="kcombo-div"></div>
-        <div class="kcombo-item">
-          <div class="klabel">예산</div><div class="kval">${fmtM(b)}<span class="kunit"> 백만원</span></div>
-          <div class="ksub">${scopeLabel()}</div>
-        </div>
-        <div class="kcombo-div"></div>
-        <div class="kcombo-item">
-          <div class="klabel">집행률</div>
-          <div class="kval ${rateTextClass(rate)}">${rate === null ? "-" : rate === Infinity ? "∞" : Math.round(rate) + "%"}</div>
-          <div class="ksub">${scopeLabel()} 예산 대비</div>
-        </div>
-      </div>`
-    );
+    setHtml("summaryKpis", kpiStackHtml("#2563eb", a, b, rate, summaryMomHtml));
 
-    // 경영진 요약 코멘트: 총합계 → 본사/법인 → 구분(re) → 대계정 순으로 원인을 추적한다.
-    const isAlert = rate !== null && (rate === Infinity || rate > 130);
-    setHtml(
-      "summaryInsight",
-      `<div class="callout ${isAlert ? "alert" : "info"}"><div class="ic">${isAlert ? "⚠️" : "📌"}</div><div>${drillDownSummary(scopeLabel(), s)}</div></div>`
-    );
 
     // 신규: 월별 실적 추이 콤보 차트 (항상 전체 월 범위, 당월 기준)
     const lastMonth = months[months.length - 1];
@@ -1026,13 +921,7 @@ export function initDashboard(data: DashboardData): () => void {
         "전체 합계"
       )
     );
-    setHtml("catLegend", legendHtml([[C_BUDGET, "예산"], [C_ACTUAL, "실적"]]));
-    queueChart("category", "categoryChart", () =>
-      barChart("categoryChart", cats.map((c) => c.category), cats.map((c) => c.actual), cats.map((c) => c.budget))
-    );
 
-    // 경영진 요약 코멘트: 총합계 → 본사/법인 → 구분(re) → 대계정 순으로 원인을 추적한다 (Summary 탭과 동일한 로직).
-    setHtml("catInsight", `<div class="callout info"><div class="ic">💡</div><div>${drillDownSummary(scopeLabel(), s)}</div></div>`);
 
     // 대계정별 상세: 구분(카테고리) 컬럼을 추가하고, 구분별 상세와 같은 순서로 대계정을 묶어서 보여준다.
     setText("hqMainAccountTblSub", scopeLabel() + " · 백만원");
@@ -1096,26 +985,7 @@ export function initDashboard(data: DashboardData): () => void {
 
     // Humax(전사) 탭과 동일하게 실적/예산/집행률 통합 카드 하나로 표시한다.
     // 국내/해외 개별 카드는 생략하고, 대신 비중은 아래 "국내/해외 비중" 추이 차트로 확인한다.
-    setHtml(
-      "evcsKpis",
-      `<div class="kcard kcard-combo"><div class="kcard-bar" style="background:#0891b2"></div>
-        <div class="kcombo-item">
-          <div class="klabel">집행 실적</div><div class="kval">${fmtM(totA)}<span class="kunit"> 백만원</span></div>
-          <div class="ksub">${scopeLabel()}${evcsMomTot}</div>
-        </div>
-        <div class="kcombo-div"></div>
-        <div class="kcombo-item">
-          <div class="klabel">예산</div><div class="kval">${fmtM(totB)}<span class="kunit"> 백만원</span></div>
-          <div class="ksub">${scopeLabel()}</div>
-        </div>
-        <div class="kcombo-div"></div>
-        <div class="kcombo-item">
-          <div class="klabel">집행률</div>
-          <div class="kval ${rateTextClass(evcsRate)}">${evcsRate === null ? "-" : evcsRate === Infinity ? "∞" : Math.round(evcsRate) + "%"}</div>
-          <div class="ksub">${scopeLabel()} 예산 대비</div>
-        </div>
-      </div>`
-    );
+    setHtml("evcsKpis", kpiStackHtml("#0891b2", totA, totB, evcsRate, evcsMomTot));
 
     // 신규: EVCS 월별 실적 추이 콤보 차트 (국내+해외 합계, 항상 전체 월 범위)
     const lastMonth = months[months.length - 1];
@@ -1158,11 +1028,6 @@ export function initDashboard(data: DashboardData): () => void {
       )
     );
 
-    // 경영진 요약 코멘트: 총합계 → 본사/법인 → 구분(re) → 대계정 순으로 원인을 추적한다 (EVCS 배부금액 기준).
-    setHtml(
-      "evcsInsight",
-      `<div class="callout info"><div class="ic">🔋</div><div>${drillDownSummary(scopeLabel(), e.evcsSummary)}</div></div>`
-    );
 
     // 대계정별 상세 (EVCS 배부금액 기준) — 계정별 탭과 동일한 형태.
     setText("evcsHqMainAccountTblSub", scopeLabel() + " · 백만원");
@@ -1250,10 +1115,7 @@ export function initDashboard(data: DashboardData): () => void {
     setHtml("allocActualTable", allocTable(board.actual));
     setText("allocDiffSub", scopeLabel() + " · 백만원 · 값에 마우스를 올리면 원인 대계정이 표시됩니다");
     setHtml("allocDiffTable", allocDiffTable(board.actual, board.budget));
-    setHtml(
-      "allocTrendInsight",
-      `<div class="callout info"><div class="ic">📈</div><div><b>${scopeLabel()} 배부 변동 요약</b> — ${allocTrendSummary(board.actual, board.budget)}</div></div>`
-    );
+    setHtml("allocTrendInsight", allocTrendCardsHtml(board.actual, board.budget));
   }
 
   const ALLOC_FIELDS: (keyof AllocValues13)[] = [
@@ -1360,58 +1222,46 @@ export function initDashboard(data: DashboardData): () => void {
    * level 1(부문/법인사)만 합산한다 — level 2(Staff부문 하위조직)는 그 상위 level 1 "5. Staff부문"에
    * 이미 포함된 값이라, 둘 다 더하면 Staff부문 몫이 이중으로 잡혀 Total 행과 어긋난다.
    */
-  function allocTrendSummary(actualRows: AllocationRow[], budgetRows: AllocationRow[]): string {
+  /**
+   * 부록 D 맨 위 — 배부 항목 여섯 개를 가로 한 줄에 카드로 늘어놓는다.
+   * 문장으로 이어 쓰면 여섯 항목이 한 문단에 뭉쳐 어느 항목 이야기인지 눈으로 못 가른다.
+   * 카드마다 예산 대비 증감과 그 원인 조직 하나만 단어로 적는다.
+   */
+  function allocTrendCardsHtml(actualRows: AllocationRow[], budgetRows: AllocationRow[]): string {
     const budgetByLabel = new Map(budgetRows.map((b) => [b.label, b]));
     const rows = actualRows
       .filter((a) => a.level === 1)
       .map((a) => {
         const b = budgetByLabel.get(a.label);
-        if (!b) return null;
-        return { label: stripDeptNumber(a.label), diff: diffOf(a, b) };
+        return b ? { label: stripDeptNumber(a.label), diff: diffOf(a, b) } : null;
       })
-      .filter((x): x is { label: string; diff: AllocValues13 & { humaxTotal: number; sharedTotal: number; grandTotal: number } } => x !== null);
+      .filter((x): x is NonNullable<typeof x> => x !== null);
 
-    const dims: { key: "stb" | "mobility" | "evcsDomestic" | "evcsOverseas" | "humaxCommon" | "sharedTotal"; label: string }[] = [
-      { key: "stb", label: "STB" },
-      { key: "mobility", label: "Mobility" },
-      { key: "evcsDomestic", label: "EVCS(국내)" },
-      { key: "evcsOverseas", label: "EVCS(해외)" },
-      { key: "humaxCommon", label: "Humax(공통)" },
-      { key: "sharedTotal", label: "Shared" },
-    ];
+    const cards = ALLOC_TREND_DIMS.map((dim) => {
+      const total = rows.reduce((s, r) => s + r.diff[dim.key], 0);
+      const quiet = Math.abs(total) < REMARK_MIN_DIFF_WON;
+      const sign = total > 0 ? 1 : -1;
+      const top = quiet
+        ? null
+        : rows
+            .filter((r) => Math.sign(r.diff[dim.key]) === sign)
+            .sort((a, b) => Math.abs(b.diff[dim.key]) - Math.abs(a.diff[dim.key]))[0];
+      const value = quiet
+        ? `<div class="alloc-card-val alloc-card-quiet">예산 수준</div>`
+        : `<div class="alloc-card-val ${total > 0 ? "neg" : "pos"}">${total > 0 ? "+" : ""}${fmtM(total)}<span class="alloc-card-unit">백만 ${
+            total > 0 ? "초과" : "미달"
+          }</span></div>`;
+      const cause =
+        top && !quiet
+          ? `<div class="alloc-card-sub">${top.label} ${top.diff[dim.key] >= 0 ? "+" : ""}${fmtM(top.diff[dim.key])}</div>`
+          : `<div class="alloc-card-sub">&nbsp;</div>`;
+      return (
+        `<div class="alloc-card" style="border-top-color:${dim.color}">` +
+        `<div class="alloc-card-hd">${dim.label}</div>${value}${cause}</div>`
+      );
+    }).join("");
 
-    const sentences: string[] = [];
-    for (const dim of dims) {
-      const dimTotal = rows.reduce((s, r) => s + r.diff[dim.key], 0);
-      if (Math.abs(dimTotal) < REMARK_MIN_DIFF_WON) continue; // 이 항목은 전사적으로 유의미한 변동 없음
-      const sign = dimTotal > 0 ? 1 : -1;
-      const top = rows
-        .filter((r) => Math.sign(r.diff[dim.key]) === sign)
-        .sort((a, b) => Math.abs(b.diff[dim.key]) - Math.abs(a.diff[dim.key]))[0];
-      if (!top) continue;
-
-      const over = dimTotal > 0;
-      let sentence =
-        `<b>${dim.label}</b>${josaEunNeun(dim.label)} 예산 대비 ${over ? "+" : ""}${fmtM(dimTotal)}백만원 ${
-          over ? "초과" : "미달"
-        }이며, 주요 원인은 <b>${top.label}</b>(${top.diff[dim.key] >= 0 ? "+" : ""}${fmtM(top.diff[dim.key])}백만원)${josaEunNeun(top.label)}로 파악됩니다.`;
-
-      // 특이사항: 이 Company의 배부전 총합계는 반대 방향으로 움직였는데(=총합계는 반대로 갔는데) 이 항목의 배부액만 그렇게 늘거나 줄어든 경우만 별도로 짚어준다.
-      const totalMovedOpposite = Math.sign(top.diff.grandTotal) === -sign && Math.abs(top.diff.grandTotal) >= REMARK_MIN_DIFF_WON;
-      if (totalMovedOpposite) {
-        sentence += ` 다만 ${top.label}의 배부전 총합계는 오히려 ${top.diff.grandTotal >= 0 ? "+" : ""}${fmtM(
-          top.diff.grandTotal
-        )}백만원 ${top.diff.grandTotal >= 0 ? "증가" : "감소"}해, <b>배부 비중 자체의 변동</b>${josaRoEuro(
-          "배부 비중 자체의 변동"
-        )} 파악되는 특이 케이스입니다.`;
-      }
-      sentences.push(sentence);
-    }
-
-    if (!sentences.length) {
-      return "이번 기간 STB/Mobility/EVCS(국내)/EVCS(해외)/Humax(공통)/Shared 기준으로 예산 대비 유의미한 변동은 없습니다.";
-    }
-    return sentences.join(" ");
+    return `<div class="alloc-cards">${cards}</div>`;
   }
 
   // ================= SUMMARY① Humax합계 / SUMMARY③ Humax합계_상세 (공용) =================
