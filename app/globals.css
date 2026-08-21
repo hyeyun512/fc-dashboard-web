@@ -36,13 +36,19 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .appx-top-row{display:grid;grid-template-columns:minmax(180px,0.62fr) 1.5fr 1fr;gap:14px;align-items:stretch;margin-bottom:16px}
 .appx-top-row > *{min-width:0}
 .appx-top-row .chart-wrap-lg{height:210px}
-/* 실적·예산·집행률을 세로로 쌓은 요약 상자. 기간은 머리에 한 번만 적는다. */
-.kstack{display:flex;flex-direction:column;justify-content:center;gap:9px;padding:14px 16px 14px 19px;height:100%}
-.kstack-hd{font-size:11px;font-weight:700;color:#94a3b8;letter-spacing:.3px}
-.kstack-item .klabel{font-size:10.5px;margin-bottom:2px}
-.kstack-item .kval{font-size:21px}
-.kstack-item .ksub{margin-top:1px;font-size:11px}
-.kstack-item .kbadge{margin-top:3px}
+/* 실적·예산·집행률 요약 상자 — 라벨은 왼쪽, 숫자는 오른쪽에 세워 눈이 숫자 열을 따라 내려가게 한다.
+   기간은 머리에 한 번만 적고, 칸 사이는 옅은 선으로만 나눈다. */
+.kstack{display:flex;flex-direction:column;justify-content:center;padding:13px 15px 13px 18px;height:100%}
+.kstack-hd{font-size:10.5px;font-weight:700;color:#94a3b8;letter-spacing:.3px;padding-bottom:9px}
+.kstack-row{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:9px 0;border-top:0.5px solid #eef2f7}
+.kstack-label{font-size:11.5px;font-weight:600;color:#94a3b8;white-space:nowrap}
+.kstack-note{display:block;font-size:10px;font-weight:500;color:#cbd5e1;margin-top:1px}
+.kstack-value{font-size:19px;font-weight:700;color:#1a202c;line-height:1.1;white-space:nowrap}
+.kstack-value .kunit{font-size:11px;margin-left:3px}
+.kstack-rate{font-size:24px;font-weight:800;line-height:1.05;white-space:nowrap}
+.kstack-row-rate{padding-bottom:0}
+.kstack-mom{display:flex;justify-content:flex-end;margin-top:-4px}
+.kstack-mom .kbadge{margin-top:0;font-size:11px;padding:2px 8px}
 /* 부록 D 맨 위 — 배부 항목 여섯을 가로 한 줄 카드로. 위쪽 띠 색이 항목 색이다. */
 .alloc-cards{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:10px;margin-bottom:16px}
 .alloc-card{background:#fff;border:0.5px solid #e6eaf0;border-top:3px solid #64748b;border-radius:10px;
@@ -262,10 +268,11 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .donut-wrap{position:relative;width:150px;height:150px;flex:none}
 /* flex:none으로 두면 칸이 좁아져도 줄지 않아 카드 밖으로 넘친다 — 줄어들 수 있게 min-width:0을 준다. */
 /* 도넛 말풍선은 캔버스 밖(범례 쪽)에 띄운다 — 150px 도넛 안에 그리면 그림을 통째로 가린다. */
-.donut-tip{position:absolute;left:calc(100% + 12px);transform:translateY(-50%);z-index:6;pointer-events:none;
-  opacity:0;transition:opacity .12s;background:rgba(15,23,42,.92);color:#fff;font-size:11.5px;line-height:1.45;
+.donut-tip{position:absolute;transform:translateY(-50%);z-index:6;pointer-events:none;
+  opacity:0;transition:opacity .1s;background:rgba(15,23,42,.92);color:#fff;font-size:11.5px;line-height:1.45;
   padding:6px 10px;border-radius:6px;white-space:nowrap;box-shadow:0 6px 18px rgba(15,23,42,.22)}
-.donut-tip.flip{left:auto;right:calc(100% + 12px)}
+/* 조각이 왼쪽 반원에 있으면 말풍선을 왼쪽으로 뒤집어 링 위로 넘어오지 않게 한다. */
+.donut-tip.to-left{transform:translate(-100%,-50%)}
 .donut-legend{list-style:none;margin:0;padding:0;flex:0 1 auto;min-width:0}
 .donut-legend li{display:flex;align-items:center;gap:8px;font-size:12px;color:#374151;padding:2.5px 0;white-space:nowrap}
 .dleg-dot{width:9px;height:9px;border-radius:2px;flex:none}
@@ -358,9 +365,14 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-summary .kpi-row,#tab-evcs .kpi-row{margin-bottom:8px}
   .appx-top-row{gap:8px;margin-bottom:8px}
   .appx-top-row .chart-wrap-lg{height:150px}
-  .kstack{gap:5px;padding:8px 10px 8px 12px}
-  .kstack-hd{font-size:8.5px}
-  .kstack-item .kval{font-size:14px}
+  .kstack{padding:7px 10px 7px 12px}
+  .kstack-hd{font-size:8px;padding-bottom:5px}
+  .kstack-row{padding:5px 0}
+  .kstack-label{font-size:8.5px}
+  .kstack-note{font-size:7.5px}
+  .kstack-value{font-size:13px}
+  .kstack-value .kunit{font-size:8px}
+  .kstack-rate{font-size:16px}
   .alloc-cards{gap:6px;margin-bottom:8px}
   .alloc-card{padding:5px 8px 6px;border-radius:8px;box-shadow:none}
   .alloc-card-hd{font-size:8.5px;margin-bottom:2px}

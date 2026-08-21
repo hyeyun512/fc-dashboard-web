@@ -102,16 +102,17 @@ export function initDashboard(data: DashboardData): () => void {
    */
   function kpiStackHtml(accent: string, actual: number, budget: number, rate: number | null, momHtml = ""): string {
     const rateText = rate === null ? "-" : rate === Infinity ? "∞" : Math.round(rate) + "%";
+    const row = (label: string, value: string) =>
+      `<div class="kstack-row"><span class="kstack-label">${label}</span><span class="kstack-value">${value}</span></div>`;
     return (
       `<div class="kcard kstack"><div class="kcard-bar" style="background:${accent}"></div>` +
       `<div class="kstack-hd">${scopeLabel()}</div>` +
-      `<div class="kstack-item"><div class="klabel">집행 실적</div>` +
-      `<div class="kval">${fmtM(actual)}<span class="kunit"> 백만원</span></div>${momHtml}</div>` +
-      `<div class="kstack-item"><div class="klabel">예산</div>` +
-      `<div class="kval">${fmtM(budget)}<span class="kunit"> 백만원</span></div></div>` +
-      `<div class="kstack-item"><div class="klabel">집행률</div>` +
-      `<div class="kval ${rateTextClass(rate)}">${rateText}</div>` +
-      `<div class="ksub">예산 대비</div></div>` +
+      row("집행 실적", `${fmtM(actual)}<span class="kunit">백만원</span>`) +
+      (momHtml ? `<div class="kstack-mom">${momHtml}</div>` : "") +
+      row("예산", `${fmtM(budget)}<span class="kunit">백만원</span>`) +
+      `<div class="kstack-row kstack-row-rate">` +
+      `<span class="kstack-label">집행률<span class="kstack-note">예산 대비</span></span>` +
+      `<span class="kstack-rate ${rateTextClass(rate)}">${rateText}</span></div>` +
       `</div>`
     );
   }
@@ -185,47 +186,6 @@ export function initDashboard(data: DashboardData): () => void {
   /** "5. Staff부문" -> "Staff부문"처럼 구분(re) 앞의 번호를 뗀 표시용 이름. */
   function stripDeptNumber(dept: string): string {
     return dept.replace(/^\d+\.\s*/, "");
-  }
-  /**
-   * 조직별 지급수수료 현황 표 위에 붙는 요약 코멘트. 전체 집행률을 먼저 밝히고, 예산 대비 유의미하게
-   * 미달/초과된 조직을 방향별로 모두 나열한다 (하나씩만 뽑으면 언급된 금액 합이 전체 차이 금액과
-   * 크게 어긋나므로, 임계값 이상인 조직은 빠짐없이 실어 "언급된 금액 합 ≈ 전체 차이"에 가깝게 만든다).
-   * Staff부문은 자체 합계 대신 그 하위 대조직(예: "Staff부문의 경영지원실")으로 표기해 더 구체적으로 알려준다.
-   */
-  function feeOrgSummary(scopeLbl: string, rows: FeeOrgRow[]): string {
-    const level0 = rows.filter((r) => r.level === 0);
-    const totalAct = level0.reduce((s, r) => s + r.actual, 0);
-    const totalBud = level0.reduce((s, r) => s + r.budget, 0);
-    const rate = rateOf(totalAct, totalBud);
-    const overallText =
-      rate === null
-        ? "집행 실적이 아직 없습니다"
-        : rate === Infinity
-        ? "예산 없이 집행이 발생했습니다"
-        : `지급수수료 집행률은 ${Math.round(rate)}%로 ${
-            rate > 105 ? "예산을 다소 초과" : rate < 95 ? "예산 대비 여유 있게" : "예산 범위 내에서 양호하게"
-          } 집행되었습니다`;
-
-    const leaves = rows
-      .filter((r) => !(r.level === 0 && r.org === "5. Staff부문"))
-      .map((r) => ({ label: r.level === 1 ? `Staff부문의 ${r.org}` : stripDeptNumber(r.org), diff: r.actual - r.budget }))
-      .filter((l) => Math.abs(l.diff) >= REMARK_MIN_DIFF_WON);
-
-    const unders = leaves.filter((l) => l.diff < 0).sort((a, b) => a.diff - b.diff);
-    const overs = leaves.filter((l) => l.diff > 0).sort((a, b) => b.diff - a.diff);
-
-    if (!unders.length && !overs.length) {
-      return `<b>${scopeLbl} 지급수수료 현황</b> — ${overallText}. 조직별로도 예산 범위 내에서 안정적으로 관리되고 있습니다.`;
-    }
-    const fmtList = (list: { label: string; diff: number }[]) =>
-      list.map((l) => `${l.label}(${l.diff >= 0 ? "+" : ""}${fmtM(l.diff)}백만원)`).join(", ");
-
-    const clauses: string[] = [];
-    if (unders.length) clauses.push(`미달 원인은 ${fmtList(unders)}이며`);
-    if (overs.length) clauses.push(`초과 원인은 ${fmtList(overs)}입니다`);
-    const tail = clauses.length === 2 ? clauses.join(", ") : clauses[0].replace(/이며$/, "입니다");
-
-    return `<b>${scopeLbl} 지급수수료 현황</b> — ${overallText}. ${tail}.`;
   }
   /** 전월 대비 증감 배지 (당월 보기에서만 의미가 있음). */
   function momBadgeHtml(current: number, previous: number | null): string {
@@ -545,11 +505,32 @@ export function initDashboard(data: DashboardData): () => void {
     }
     const lines: string[] = (tt.body || []).flatMap((b: { lines: string[] }) => b.lines);
     tip.innerHTML = lines.map((l) => `<div>${l}</div>`).join("");
-    // 세로 위치는 가리키는 조각에 맞춘다 — 어느 조각을 읽고 있는지 눈이 따라가기 쉽다.
+
+    // 가리키는 조각의 바깥 모서리 바로 옆에 붙인다 — 링을 덮지 않으면서 커서에서 멀어지지도 않는다.
+    // (상자 오른쪽 끝에 고정해 두면 큰 도넛에서는 말풍선이 저만치 떨어져 무엇을 가리키는지 알 수 없다.)
+    const canvas = (ctx.chart as any).canvas as HTMLCanvasElement;
+    const cRect = canvas.getBoundingClientRect();
+    const wRect = wrap.getBoundingClientRect();
     const arc = tt.dataPoints?.[0]?.element;
-    tip.style.top = `${arc ? arc.tooltipPosition().y : tt.caretY}px`;
-    const box = wrap.getBoundingClientRect();
-    tip.classList.toggle("flip", box.right + 240 > window.innerWidth);
+    let x = cRect.width / 2;
+    let y = cRect.height / 2;
+    let toRight = true;
+    if (arc) {
+      const angle = (arc.startAngle + arc.endAngle) / 2;
+      const r = arc.outerRadius + 10;
+      x = arc.x + Math.cos(angle) * r;
+      y = arc.y + Math.sin(angle) * r;
+      toRight = Math.cos(angle) >= 0;
+    }
+    // 화면 밖으로 잘리는 쪽으로는 펼치지 않는다 (옆 카드 위로 조금 걸치는 건 잠깐 뜨는 것이라 괜찮다).
+    const tipW = tip.offsetWidth;
+    const absX = cRect.left + x;
+    if (!toRight && absX - tipW < 8) toRight = true;
+    else if (toRight && absX + tipW > window.innerWidth - 8) toRight = false;
+
+    tip.style.left = `${cRect.left - wRect.left + x}px`;
+    tip.style.top = `${cRect.top - wRect.top + y}px`;
+    tip.classList.toggle("to-left", !toRight);
     tip.style.opacity = "1";
   }
 
@@ -565,7 +546,8 @@ export function initDashboard(data: DashboardData): () => void {
         maintainAspectRatio: false,
         cutout: "62%",
         plugins: {
-          legend: { position: "bottom", labels: { boxWidth: 10, font: { size: 11 }, padding: 12 } },
+          // 범례는 도넛 오른쪽에 세로로 — 아래에 깔면 도넛이 위로 밀려 작아지고, 옆은 어차피 비는 자리다.
+          legend: { position: "right", labels: { boxWidth: 9, boxHeight: 9, font: { size: 11 }, padding: 9, usePointStyle: true, pointStyle: "circle" } },
           tooltip: {
             enabled: false,
             external: donutTooltipOutside,
@@ -932,7 +914,6 @@ export function initDashboard(data: DashboardData): () => void {
     // 조직별 지급수수료 현황 (맨 아래 배치): 본사 5개 부문(Staff부문은 대조직까지 세분화) + 법인 기준으로
     // 지급수수료 계열 4개 대계정(지급수수료/외주개발용역비/인증대행료/특허처리비) 합계를 보여준다.
     // 비고란에는 차이의 주요 원인 대계정을 표기하고, 누계 보기에서는 특정 월에 차이가 집중된 경우 그 월도 함께 짚어준다.
-    setHtml("feeOrgInsight", `<div class="callout info"><div class="ic">🧾</div><div>${feeOrgSummary(scopeLabel(), scope.feeByOrg)}</div></div>`);
     const feeOrgRows = scope.feeByOrg.filter((r) => r.actual !== 0 || r.budget !== 0);
     const feeOrgRemark = (r: (typeof feeOrgRows)[number]): string => {
       const base = attributionRemark(
