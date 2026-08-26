@@ -202,6 +202,14 @@ export function initDashboard(data: DashboardData): () => void {
     const m = data.byMonth[currentMonth];
     return currentMode === "month" ? m : m.cumulative;
   }
+  /**
+   * 당월/누계 토글과 무관하게 언제나 누계를 쓰는 시트용 (Summary③·④).
+   * 그 두 장은 특정 월 하나만 떼어 보면 뜻이 없다 — 배부 항목별 상세와 추이는
+   * 누계 기준으로만 읽는 것으로 고정했다 (2026-08-26 지시).
+   */
+  function getCumScope() {
+    return data.byMonth[currentMonth].cumulative;
+  }
 
   const el = (id: string) => document.getElementById(id);
   const setHtml = (id: string, html: string) => {
@@ -255,9 +263,10 @@ export function initDashboard(data: DashboardData): () => void {
     else (CHART_BUILDERS[tabId] = CHART_BUILDERS[tabId] || []).push(run);
   }
 
-  // Summary①·②는 당월과 누계를 항상 한 화면에 함께 보여주므로 상단 당월/누계 토글이 아무 효과가 없다.
-  // 그대로 두면 눌러도 숫자가 안 바뀌어 혼동을 주므로 해당 탭에서는 토글을 숨긴다.
-  const MODE_TOGGLE_HIDDEN_TABS = ["sum-total", "sum-evcs"];
+  // 상단 당월/누계 토글이 아무 효과가 없는 탭에서는 토글을 숨긴다 — 눌러도 숫자가 안 바뀌면 혼동을 준다.
+  // Summary①·②는 당월과 누계를 항상 한 화면에 함께 보여주기 때문이고,
+  // Summary③·④는 누계 기준으로만 읽도록 고정했기 때문이다 (getCumScope 참고).
+  const MODE_TOGGLE_HIDDEN_TABS = ["sum-total", "sum-evcs", "sum-detail", "sum-trend"];
   function updateModeToggleVisibility(tabId: string) {
     const box = el("modeFilterBox");
     if (box) box.style.display = MODE_TOGGLE_HIDDEN_TABS.includes(tabId) ? "none" : "";
@@ -1427,15 +1436,16 @@ export function initDashboard(data: DashboardData): () => void {
   }
 
   function renderSumDetail() {
-    const scope = getScope();
+    // 이 시트(와 배부액 추이)는 상단 당월/누계 토글을 따르지 않고 언제나 누계로 읽는다.
+    const scope = getCumScope();
     const board = scope.allocationBoard.actual;
     const total = board.find((r) => r.label === "Total");
     const hq = board.find((r) => r.label === "본사(HKR)");
     const corp = board.find((r) => r.label === "법인" && r.level === 0);
     if (!total || !hq || !corp) return;
-    // 제목이 곧 기준 기간 — 당월/누계 선택에 따라 "6월 실적" / "6월 누계 실적"으로 바뀐다.
-    setText("sumDetailTitle", currentMode === "cum" ? `${currentMonth} 누계 실적` : `${currentMonth} 실적`);
-    setText("sumDetailSub", currentMode === "cum" ? `${months[0]}~${currentMonth} · 백만원` : "백만원");
+    // 제목이 곧 기준 기간 — 누계 고정이므로 "6월 누계 실적"으로만 적는다.
+    setText("sumDetailTitle", `${currentMonth} 누계 실적`);
+    setText("sumDetailSub", `${months[0]}~${currentMonth} · 백만원`);
 
     // 본사 구분별(인건비~기타) STB~건물 배부 내역 — 더 이상 "합계" 한 칸만이 아니라 전체 열을 채운다.
     const hqCatRows: SumDetailRow[] = scope.hqCategoryAlloc.map((c) => ({ label: c.category, alloc: c, indent: true }));
