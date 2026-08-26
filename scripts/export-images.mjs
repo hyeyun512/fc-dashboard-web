@@ -38,7 +38,13 @@ const OUT_ROOT = arg("out", join(REPO, "보고 이미지"));
  * 받는 사람 화면에서 글씨가 얼마나 크게 보이는지는 '글자 크기 ÷ 이 폭'으로 정해진다 —
  * 메일 창이 좁으면 그림이 통째로 줄어들기 때문이다. 그래서 좁게 그리고 글씨를 키운다.
  */
-const WIDTH = Number(arg("width", "900"));
+const WIDTH = Number(arg("width", "1170"));
+/**
+ * 그림을 배치 폭보다 더 크게 뽑고 싶을 때만 쓴다(가로·세로가 같은 비율로 커진다).
+ * 기본은 1 — 넓게 쓰고 싶으면 이걸 키우지 말고 `--width`를 키운다. 그래야 표·도넛이
+ * 옆으로 펼쳐지면서 세로가 짧아진다(통째로 확대하면 글씨만 커지고 세로도 그만큼 길어진다).
+ */
+const ZOOM = Number(arg("zoom", "1"));
 /** 화소 배율. 2배로 찍고 DPI를 2배로 적어, 워드가 원래 크기로 넣으면서 선명하게 보이게 한다. */
 const SCALE = Number(arg("scale", "2"));
 
@@ -99,25 +105,23 @@ const EXPORT_CSS = `
   .donut-wrap{width:118px;height:118px}
   .donut-legend li{font-size:12.5px}
   .donut-card-title{font-size:13px}
-  /* 표와 도넛이 나란히 서면 좁은 폭에서는 표가 잘린다 — 도넛을 표 아래로 내린다.
-     (Humax합계는 표가 8칸이라 도넛 자리를 내주면 오른쪽 '건물' 칸이 잘려 나간다) */
-  .sum-block-row{flex-direction:column;align-items:stretch}
-  .sum-block-row .tbl-box{width:100%!important;max-width:none!important}
+  /* 표와 도넛은 화면에서처럼 나란히 둔다 — 폭이 넉넉해야 세로가 짧아지고 메일에서 읽기 좋다.
+     표는 남는 폭을 다 쓰게 늘리고, 도넛은 제 크기만 차지하게 둔다. */
+  .sum-block,.sum-block-row{width:100%!important;max-width:none!important}
+  .sum-block-row .tbl-box{flex:1 1 auto;width:auto!important;max-width:none!important;min-width:0}
+  .sum-block-row .donut-box{flex:0 0 auto}
   #tab-sum-total .sum-tbl{width:100%!important}
-  /* 표 아래로 내린 도넛은 폭을 다 쓰고 범례를 세 줄로 펼친다 (한 줄로 세우면 오른쪽이 휑하다). */
-  .sum-block-row .donut-box{width:100%;justify-content:flex-start;gap:28px}
-  .sum-block-row .donut-legend{display:grid;grid-template-columns:repeat(3,auto);gap:2px 34px}
-  /* EVCS 상단은 표(왼쪽)와 도넛 2장(오른쪽)이 나란히 서면 폭이 1,400px을 넘는다 — 위아래로 쌓는다. */
-  .evcs-top{grid-template-columns:1fr!important;gap:12px}
-  /* 상세는 표와 항목별 Summary를 위아래로 둔다 (나란히 두면 표가 눌려 글씨가 작아진다). */
-  .detail-grid{grid-template-columns:1fr!important}
+  /* EVCS 상단(표 + 도넛 2장)과 상세(표 + 항목별 Summary)도 화면과 같이 좌우로 둔다. */
+  .evcs-top{grid-template-columns:minmax(0,1fr) minmax(0,1.15fr)!important;gap:14px}
+  #tab-sum-evcs .tbl-box{width:100%!important;max-width:none!important}
+  #tab-sum-evcs .pl-tbl{width:100%!important}
+  .detail-grid{grid-template-columns:minmax(0,1fr) minmax(330px,0.62fr)!important}
   .detail-grid > .tbl-box,.detail-grid > .summary-cards-box{height:auto!important}
-  .summary-cards{grid-template-columns:repeat(3,1fr)}
-  .detail-trend-wrap{height:300px}
-  /* 위아래로 쌓고 나면 표 오른쪽이 휑하게 빈다 — 표를 폭에 맞춰 늘려 숫자 사이를 벌린다.
-     (칸이 넓어질 뿐 글씨 크기는 그대로라, 빈자리만큼 읽기 쉬워진다) */
-  #tab-sum-evcs .tbl-box,#tab-sum-detail .tbl-box{width:100%!important;max-width:none!important}
-  #tab-sum-evcs .pl-tbl,#tab-sum-detail .sum-tbl{width:100%!important}
+  #tab-sum-detail .tbl-box{width:100%!important;max-width:none!important}
+  #tab-sum-detail .sum-tbl{width:100%!important}
+  /* EVCS 표 머리말의 설명이 길어 두 줄로 접힌다 — 그 줄만 한 단계 줄여 한 줄에 넣는다. */
+  #tab-sum-evcs .section-lead .sub{font-size:11.5px}
+  .detail-trend-wrap{height:320px}
   /* 마지막 요소 아래 여백은 그림 밑에 빈 띠로 남는다. */
   .content > *:last-child{margin-bottom:0!important}
   .sum-block:last-child{margin-bottom:0!important}
@@ -194,8 +198,12 @@ const evaluate = async (expression) => {
   if (r.exceptionDetails) throw new Error(JSON.stringify(r.exceptionDetails));
   return r.result.value;
 };
+/**
+ * 배치는 항상 WIDTH(css px)로 하고, 화소만 ZOOM×SCALE배로 찍는다.
+ * ZOOM은 "그림을 통째로 키우는 배율", SCALE은 "선명하게 찍는 배율"이라 역할이 다르다.
+ */
 const setViewport = (width, height) =>
-  send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: SCALE, mobile: false });
+  send("Emulation.setDeviceMetricsOverride", { width, height, deviceScaleFactor: ZOOM * SCALE, mobile: false });
 
 // ── 실행 ──────────────────────────────────────────────────────────────────────
 await send("Page.enable");
