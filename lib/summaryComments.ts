@@ -181,8 +181,8 @@ export const SUMMARY_DETAIL_GROUPS: Record<string, SummaryCommentGroup[]> = {
       label: "STB",
       lines: [
         "[지급수수료]",
-        "외주개발용역비 누계 200백만(집행률 28%) — 예산 대비 524백만 미달 (New Aura/iWedia SW이슈로 지연)",
-        "Charter B&M Legal fee 7월 55백만 추가 집행 (누계 127백만)",
+        "New Aura/iWedia 외주개발용역비 518백만 추가 집행 가능성 있음 (SW이슈로 지연)",
+        "Charter Legal fee/B&M Legal fee 127백만 집행 (소송 재개)",
       ],
     },
     {
@@ -246,17 +246,18 @@ export const SUMMARY_TREND_GROUPS: Record<string, SummaryCommentGroup[]> = {
       lines: [
         "4월, 5월 트렌드 왜곡",
         "-STB License Fee/Nagra 4월 -84백만, 5월 +84백만 (선급비용 결산 조정 지연)",
-        "1~5월 평균 대비 6월 60백만, 7월 45백만 초과",
-        "-Charter B&M Legal fee 7월 55백만 추가 집행 (누계 127백만)",
+        "1~5월 평균 476백만 대비 6월 60백만, 7월 45백만 초과",
+        "-Charter B&M Legal fee 6월 72백만, 7월 55백만 집행 (누계 127백만)",
       ],
     },
     {
       label: "HUMAX(공통)",
       lines: [
-        "1월, 5월, 7월 일회성 증가",
-        "-26년 외부감사 착수금 200백만(1월), 주식보상비용 34백만(3월) 216백만(5월)",
-        "7월 880백만 — 1~6월 평균 611백만 대비 269백만 초과",
-        "-합병 자문·평가 수수료 350백만 집행",
+        "1월, 3월, 5월, 7월 일회성 증가",
+        "-1월: 26년 외부감사 착수금 200백만",
+        "-3월, 5월: 주식보상비용 3월 34백만, 5월 216백만",
+        "-7월: 합병 자문·평가 수수료 350백만 (KB증권, 이촌회계법인)",
+        "1~6월 평균 611백만 대비 7월 269백만 초과",
       ],
     },
     {
