@@ -12,6 +12,12 @@
  *   · 화소는 2배로 찍은 뒤 (DPI 192로 표기해 워드가 절반 크기로 넣는다 = 늘어나지 않는다)
  * 붙여 넣기만 하면 되는 PNG를 만든다.
  *
+ * 크기는 세 값이 정한다 — 헷갈리기 쉬우니 역할을 나눠 둔다.
+ *   · WIDTH : 배치 폭. 키우면 칸이 옆으로 펼쳐져 세로가 짧아지고, 글씨는 폭 대비 작아진다.
+ *   · ZOOM  : 통째로 확대. 가로·세로가 같은 비율로 커지고 생김새는 그대로다(글씨도 같이 커짐).
+ *   · SCALE : 화소만 늘림. 보이는 크기는 그대로 두고 선명해진다.
+ * 붙였을 때 보이는 폭 = WIDTH × ZOOM, 파일 화소 = 거기에 × SCALE.
+ *
  * 브라우저 창 대신 헤드리스 크롬을 쓰므로 이 PC의 화면 배율·창 크기와 무관하게 매달 같은 그림이 나온다.
  */
 import { spawn } from "node:child_process";
@@ -33,18 +39,12 @@ const URL_ = arg("url", "https://fc-dashboard-web.vercel.app/");
 const WANT_MONTH = arg("month", "");
 const OUT_ROOT = arg("out", join(REPO, "보고 이미지"));
 /**
- * 시트를 그릴 폭(css px).
- *
- * 받는 사람 화면에서 글씨가 얼마나 크게 보이는지는 '글자 크기 ÷ 이 폭'으로 정해진다 —
- * 메일 창이 좁으면 그림이 통째로 줄어들기 때문이다. 그래서 좁게 그리고 글씨를 키운다.
+ * 시트를 그릴 폭(css px). 표·도넛·항목별 Summary가 좌우로 벌어질 자리를 정한다.
+ * 넓게 쓰고 싶으면 ZOOM이 아니라 이걸 키운다 — 그래야 세로가 같이 길어지지 않는다.
  */
-const WIDTH = Number(arg("width", "1170"));
-/**
- * 그림을 배치 폭보다 더 크게 뽑고 싶을 때만 쓴다(가로·세로가 같은 비율로 커진다).
- * 기본은 1 — 넓게 쓰고 싶으면 이걸 키우지 말고 `--width`를 키운다. 그래야 표·도넛이
- * 옆으로 펼쳐지면서 세로가 짧아진다(통째로 확대하면 글씨만 커지고 세로도 그만큼 길어진다).
- */
-const ZOOM = Number(arg("zoom", "1"));
+const WIDTH = Number(arg("width", "1300"));
+/** 그림을 통째로 키우는 배율. 가로·세로가 같은 비율로 커지고 칸 배치는 달라지지 않는다. */
+const ZOOM = Number(arg("zoom", "1.15"));
 /** 화소 배율. 2배로 찍고 DPI를 2배로 적어, 워드가 원래 크기로 넣으면서 선명하게 보이게 한다. */
 const SCALE = Number(arg("scale", "2"));
 
@@ -77,8 +77,8 @@ function readPassword() {
 
 /**
  * 메일용 손질 — 화면에만 필요한 것(상단 바·탭·슬라이드 버튼)을 걷어내고,
- * 좌우로 벌어져 있어 폭을 넓히는 칸을 위아래로 쌓아 그림을 좁게 만든다.
- * 좁을수록 같은 글씨가 그림 안에서 크게 잡힌다.
+ * 글씨를 한 단계 키우고, 표가 남는 폭을 다 쓰도록 늘린다.
+ * 칸 배치(표 옆에 도넛·Summary)는 화면 그대로 두어 세로를 짧게 유지한다.
  */
 const EXPORT_CSS = `
   body{background:#fff}
@@ -247,7 +247,7 @@ await sleep(1200);
 
 const outDir = join(OUT_ROOT, month);
 mkdirSync(outDir, { recursive: true });
-console.log(`보고 월 ${month} · 폭 ${WIDTH}px × ${SCALE}배 → ${outDir}`);
+console.log(`보고 월 ${month} · 배치 ${WIDTH}px × 확대 ${ZOOM}배 = 붙이면 ${Math.round(WIDTH * ZOOM)}px 폭 (화소 ${SCALE}배) → ${outDir}`);
 
 const pasteBlocks = [];
 
@@ -268,11 +268,16 @@ for (const sheet of SHEETS) {
   const png = setPngDpi(Buffer.from(shot.data, "base64"), 96 * SCALE);
   const dest = join(outDir, `${sheet.name}.png`);
   writeFileSync(dest, png);
-  const px = { w: Math.max(WIDTH, size.w) * SCALE, h: size.h * SCALE };
-  console.log(`  ${sheet.name}.png  ${px.w}×${px.h}px (붙이면 ${px.w / SCALE}×${px.h / SCALE})  ${(png.length / 1024).toFixed(0)}KB`);
+  // 실제 화소 = 배치 폭 × 확대배율 × 화소배율. 붙였을 때 보이는 크기는 여기서 화소배율만 뺀 값이다.
+  const px = {
+    w: Math.round(Math.max(WIDTH, size.w) * ZOOM * SCALE),
+    h: Math.round(size.h * ZOOM * SCALE),
+  };
+  const shown = { w: Math.round(px.w / SCALE), h: Math.round(px.h / SCALE) };
+  console.log(`  ${sheet.name}.png  ${px.w}×${px.h}px (붙이면 ${shown.w}×${shown.h})  ${(png.length / 1024).toFixed(0)}KB`);
   pasteBlocks.push(
     `<p style="margin:0 0 18px"><img src="data:image/png;base64,${png.toString("base64")}"` +
-    ` width="${px.w / SCALE}" height="${px.h / SCALE}" alt="${sheet.name}"></p>`
+    ` width="${shown.w}" height="${shown.h}" alt="${sheet.name}"></p>`
   );
 
   await setViewport(WIDTH, 1200);
