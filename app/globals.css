@@ -398,6 +398,13 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-evcs .cert-chart{height:120px}
   /* 표/패널이 페이지 경계에서 어색하게 잘리지 않도록 한다 (여러 페이지로 나뉘는 Appendix용). */
   #tab-evcs .tbl-box,#tab-evcs .panel,#tab-category .tbl-box,#tab-category .panel{break-inside:avoid}
+  /* Appendix D의 배부판 3장(예산/실적/Diff)은 한 장씩 끊어 인쇄한다.
+     행이 많아 페이지 경계에 걸리면 표가 중간에서 잘리거나 머리글만 앞 페이지에 남는데,
+     세 장을 이어 붙여 아낄 만한 분량도 아니라 각각 한 페이지를 주는 편이 읽기 쉽다. */
+  #tab-alloc .alloc-print-block{break-inside:avoid}
+  #tab-alloc .alloc-print-block + .alloc-print-block{break-before:page}
+  /* 새 페이지 첫 머리글은 위 여백이 필요 없다 (페이지 상단 여백이 이미 있다). */
+  #tab-alloc .alloc-print-block + .alloc-print-block .section-lead{margin-top:0}
   /* 비고가 여러 줄로 늘어나면 표가 한 페이지를 넘긴다 — 인쇄에서는 한 줄로 줄이고 넘치면 …로 자른다
      (화면에서는 전체 문장을 그대로 볼 수 있다). */
   #tab-summary .pl-tbl .remark-cell,#tab-evcs .pl-tbl .remark-cell,#tab-category .pl-tbl .remark-cell{font-size:8px;line-height:1.2}

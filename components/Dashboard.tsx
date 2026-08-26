@@ -521,30 +521,38 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         </div>
         <div id="allocTrendInsight" />
 
-        <div className="section-lead">
-          예산(BP) 배부 현황<span className="sub" id="allocBudgetSub" />
-        </div>
-        <div className="tbl-box">
-          <div className="alloc-scroll">
-            <div id="allocBudgetTable" />
+        {/* 배부판 3장은 인쇄에서 각각 한 페이지를 차지한다 — 머리글과 표가 갈라지거나 표가 중간에서
+            끊기지 않도록 한 덩어리로 묶어두고, 페이지 나눔은 globals.css의 .alloc-print-block이 맡는다. */}
+        <div className="alloc-print-block">
+          <div className="section-lead">
+            예산(BP) 배부 현황<span className="sub" id="allocBudgetSub" />
+          </div>
+          <div className="tbl-box">
+            <div className="alloc-scroll">
+              <div id="allocBudgetTable" />
+            </div>
           </div>
         </div>
 
-        <div className="section-lead">
-          실적 배부 현황<span className="sub" id="allocActualSub" />
-        </div>
-        <div className="tbl-box">
-          <div className="alloc-scroll">
-            <div id="allocActualTable" />
+        <div className="alloc-print-block">
+          <div className="section-lead">
+            실적 배부 현황<span className="sub" id="allocActualSub" />
+          </div>
+          <div className="tbl-box">
+            <div className="alloc-scroll">
+              <div id="allocActualTable" />
+            </div>
           </div>
         </div>
 
-        <div className="section-lead">
-          Diff(실적-예산) 배부 현황<span className="sub" id="allocDiffSub" />
-        </div>
-        <div className="tbl-box">
-          <div className="alloc-scroll">
-            <div id="allocDiffTable" />
+        <div className="alloc-print-block">
+          <div className="section-lead">
+            Diff(실적-예산) 배부 현황<span className="sub" id="allocDiffSub" />
+          </div>
+          <div className="tbl-box">
+            <div className="alloc-scroll">
+              <div id="allocDiffTable" />
+            </div>
           </div>
         </div>
       </div>
