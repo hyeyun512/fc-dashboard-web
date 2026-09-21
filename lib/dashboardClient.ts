@@ -64,6 +64,14 @@ export function initDashboard(data: DashboardData): () => void {
   // allMonths 기준으로, 실적이 존재하는 마지막 달의 인덱스. 이후 구간이 "미경과 기간".
   const lastActualIdx = allMonths.indexOf(months[months.length - 1]);
 
+  /**
+   * 백만원 단위 표시.
+   *
+   * 0에 가까운 값은 세 가지로 갈린다 — 셋 다 뜻이 다르므로 하나로 뭉뚱그리지 않는다.
+   *   ·  -  : 실제로 0원 (money()가 붙인다)
+   *   ·  0  : 0은 아닌데 백만원 미만이라 반올림되어 0 (양수)
+   *   · -0  : 위와 같은데 음수. Math.round(-0.4) = -0이라 부호가 남는다 — 값이 있다는 표시다.
+   */
   const fmtM = (nVal: number) => Math.round(nVal / 1e6).toLocaleString("ko-KR");
   const fmtWon = (nVal: number) => Math.round(nVal).toLocaleString("ko-KR");
   /**
@@ -75,10 +83,18 @@ export function initDashboard(data: DashboardData): () => void {
    *
    * 숫자만 들어가는 칸에만 쓴다. 비고처럼 문장이 섞인 칸에 쓰면 복사할 때
    * 칸 전체가 숫자로 바뀌어 문장이 사라진다.
+   *
+   * 0원은 '-'로 적는다 — 그냥 0으로 두면 "백만원 미만이라 0으로 반올림된 값"과 구분되지 않는다.
+   * (300,000원도 화면에는 0으로 찍힌다. 그건 0이 아니므로 0 그대로 두고 커서로 원 단위를 확인한다.)
+   *
+   * sign을 켜면 양수에 '+'를 붙인다. 0원은 부호 없이 '-'만 남는다 — 바깥에서 부호를 붙이면
+   * '+-'가 되므로 부호까지 여기서 다룬다.
    */
-  const money = (nVal: number, extraTip = ""): string => {
-    const tip = `${fmtWon(nVal)}원` + (extraTip ? `\n${extraTip}` : "");
-    return `<span class="won" data-won="${Math.round(nVal)}" title="${escAttr(tip)}">${fmtM(nVal)}</span>`;
+  const money = (nVal: number, opts: { tip?: string; sign?: boolean } = {}): string => {
+    const won = Math.round(nVal);
+    const tip = `${fmtWon(won)}원` + (opts.tip ? `\n${opts.tip}` : "");
+    const shown = won === 0 ? "-" : `${opts.sign && won > 0 ? "+" : ""}${fmtM(nVal)}`;
+    return `<span class="won" data-won="${won}" title="${escAttr(tip)}">${shown}</span>`;
   };
   const cls = (v: number) => (v < 0 ? ' class="neg"' : "");
   const diffCls = (d: number) => (d > 0 ? ' class="neg"' : d < 0 ? ' class="pos"' : "");
@@ -761,7 +777,7 @@ export function initDashboard(data: DashboardData): () => void {
     const remarkCell = remark === undefined ? "" : `<td class="remark-cell"><span class="remark-clip">${remark}</span></td>`;
     return `<tr class="${rowClass}"><td>${nameCell}</td>
       <td${cls(budget)}>${money(budget)}</td><td${cls(actual)}>${money(actual)}</td>
-      <td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${money(diff)}</td>
+      <td${diffCls(diff)}>${money(diff, { sign: true })}</td>
       <td class="badge-cell">${rateBadgeCell(rate)}</td>${remarkCell}</tr>`;
   }
   function table5(rowsHtml: string, firstColLabel = "구분", extraColLabel?: string): string {
@@ -773,7 +789,7 @@ export function initDashboard(data: DashboardData): () => void {
     const diff = actual - budget;
     return (
       `<td${cls(budget)}>${money(budget)}</td><td${cls(actual)}>${money(actual)}</td>` +
-      `<td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${money(diff)}</td>` +
+      `<td${diffCls(diff)}>${money(diff, { sign: true })}</td>` +
       `<td class="badge-cell">${rateBadgeCell(rateOf(actual, budget))}</td>`
     );
   }
@@ -814,7 +830,7 @@ export function initDashboard(data: DashboardData): () => void {
         const diff = r.actual - r.budget;
         return `<tr><td>${r.category}</td><td>${r.accountLabel}</td>
           <td${cls(r.budget)}>${money(r.budget)}</td><td${cls(r.actual)}>${money(r.actual)}</td>
-          <td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${money(diff)}</td>
+          <td${diffCls(diff)}>${money(diff, { sign: true })}</td>
           <td class="badge-cell">${rateBadgeCell(rateOf(r.actual, r.budget))}</td>
           <td class="remark-cell"><span class="remark-clip">${mainAccountRemark(r)}</span></td></tr>`;
       })
@@ -824,7 +840,7 @@ export function initDashboard(data: DashboardData): () => void {
     const totDiff = totA - totB;
     const totRow = `<tr class="tot"><td colspan="2">대계정 합계</td>
       <td>${money(totB)}</td><td>${money(totA)}</td>
-      <td${diffCls(totDiff)}>${totDiff >= 0 ? "+" : ""}${money(totDiff)}</td>
+      <td${diffCls(totDiff)}>${money(totDiff, { sign: true })}</td>
       <td class="badge-cell">${rateBadgeCell(rateOf(totA, totB))}</td>
       <td></td></tr>`;
     return `<table class="pl-tbl"><thead><tr><th>구분</th><th>대계정</th><th>예산</th><th>실적</th><th>차이</th><th>집행률</th><th class="remark-th">비고</th></tr></thead><tbody>${bodyRows}${totRow}</tbody></table>`;
@@ -1197,7 +1213,7 @@ export function initDashboard(data: DashboardData): () => void {
         const signClass = v > 0 ? "neg" : v < 0 ? "pos" : "";
         const cls = [extraClass, signClass, tip ? "alloc-diff-hint" : ""].filter(Boolean).join(" ");
         // 숫자 위에는 원 단위와 원인 대계정을 함께 띄운다 — 칸에만 달면 숫자를 가리켰을 때 원인이 가려진다.
-        return `<td class="${cls}"${tip ? ` title="${escAttr(tip)}"` : ""}>${v >= 0 ? "+" : ""}${money(v, tip)}</td>`;
+        return `<td class="${cls}"${tip ? ` title="${escAttr(tip)}"` : ""}>${money(v, { tip, sign: true })}</td>`;
       };
       const rowClass = a.level === 0 ? "tot" : a.level === 1 ? "alloc-l1" : "alloc-l2";
       const rateCell = `<td class="badge-cell">${rateBadgeCell(rateOf(a.grandTotal, b.grandTotal))}</td>`;
@@ -1254,7 +1270,7 @@ export function initDashboard(data: DashboardData): () => void {
             .sort((a, b) => Math.abs(b.diff[dim.key]) - Math.abs(a.diff[dim.key]))[0];
       const value = quiet
         ? `<div class="alloc-card-val alloc-card-quiet">예산 수준</div>`
-        : `<div class="alloc-card-val ${total > 0 ? "neg" : "pos"}">${total > 0 ? "+" : ""}${money(total)}<span class="alloc-card-unit">백만 ${
+        : `<div class="alloc-card-val ${total > 0 ? "neg" : "pos"}">${money(total, { sign: true })}<span class="alloc-card-unit">백만 ${
             total > 0 ? "초과" : "미달"
           }</span></div>`;
       const cause =
