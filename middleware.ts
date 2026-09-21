@@ -16,8 +16,8 @@ export async function middleware(req: NextRequest) {
   const cookie = req.cookies.get(AUTH_COOKIE)?.value;
 
   if (expected && cookie && timingSafeEqual(cookie, await sha256Hex(expected))) {
-    // 볼 때마다 만료 시각을 뒤로 민다 — 5분은 "로그인하고 5분"이 아니라 "마지막으로 본 뒤 5분"이어야 한다.
-    // 고정 5분이면 보고 있는 도중에도 시간이 차서 암호를 다시 묻게 된다.
+    // 볼 때마다 만료 시각을 뒤로 민다 — 유지 기간은 "로그인하고 30분"이 아니라 "마지막으로 본 뒤 30분"이어야 한다.
+    // 로그인 시각부터 재면 보고 있는 도중에도 시간이 차서 암호를 다시 묻게 된다.
     const res = NextResponse.next();
     res.cookies.set(AUTH_COOKIE, cookie, {
       httpOnly: true,
