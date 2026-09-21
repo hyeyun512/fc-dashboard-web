@@ -131,6 +131,64 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .pl-tbl.alloc-tbl th:last-child,.pl-tbl.alloc-tbl td:last-child{border-right:none}
 .pl-tbl.alloc-tbl .alloc-sticky{border-right:1px solid #cbd5e1}
 .alloc-scroll{overflow-x:auto;max-width:100%}
+
+/* ---- 부록 D 배부판 — 한 시트에 예산·실적·Diff 세 표가 세로로 이어진다 ----
+   세 표는 열 구성도 머리글 색도 같아서, 표 위에 제목 한 줄만 띄워두면 스크롤 도중에 지금 보는 것이
+   예산인지 실적인지 알 수 없다. 그래서 구분은 칸 안이 아니라 표를 감싸는 틀에 맡긴다 —
+   칸 안의 색은 이미 초과=빨강 / 미달=파랑이라는 뜻을 갖고 있어, 거기에 색을 더 얹으면 서로 싸운다.
+   틀의 색은 색상(hue)을 늘리지 않고 밝기로만 나눈다: 예산은 회색(참고할 기준), 실적은 파랑
+   (대시보드의 기본 강조색, 실제로 읽는 표), Diff는 진한 먹색(판정) — 멀리서 봐도 셋의 순서가 읽힌다.
+   아래 규칙은 모두 #tab-alloc 아래로 한정한다. .pl-tbl.alloc-tbl은 Summary 시트의 표(.sum-tbl)도
+   함께 쓰는 공용 클래스라, 한정하지 않으면 Summary①~④가 같이 바뀐다. */
+#tab-alloc .alloc-block{--alloc-rail:#94a3b8;--alloc-hd-bg:#f1f5f9;--alloc-hd-fg:#334155;
+  --alloc-no-bg:#cbd5e1;--alloc-no-fg:#334155;--alloc-sub-fg:#94a3b8}
+#tab-alloc .alloc-block-actual{--alloc-rail:#2563eb;--alloc-hd-bg:#eff6ff;--alloc-hd-fg:#1e3a8a;
+  --alloc-no-bg:#2563eb;--alloc-no-fg:#fff;--alloc-sub-fg:#94a3b8}
+#tab-alloc .alloc-block-diff{--alloc-rail:#334155;--alloc-hd-bg:#334155;--alloc-hd-fg:#f8fafc;
+  --alloc-no-bg:rgba(255,255,255,.2);--alloc-no-fg:#fff;--alloc-sub-fg:#aebac9}
+/* 왼쪽 띠는 상자 높이만큼 이어진다 — 표 한가운데를 보고 있어도 화면 왼쪽 끝에 소속이 남아 있다. */
+#tab-alloc .alloc-block .tbl-box{border-left:3px solid var(--alloc-rail);margin-bottom:14px}
+/* 제목을 표 상자 안 머리로 올려 표와 함께 다니게 한다 (표 위에 떠 있던 .section-lead를 대신한다). */
+#tab-alloc .alloc-hd{background:var(--alloc-hd-bg);color:var(--alloc-hd-fg);padding:8px 14px;font-size:13px}
+#tab-alloc .alloc-hd .sub{color:var(--alloc-sub-fg)}
+#tab-alloc .alloc-hd-title{display:flex;align-items:center;gap:8px;font-weight:700}
+/* 번호 칩 — 세 표 중 몇 번째인지를 색 없이 알려주므로 초과/미달 색 언어와 부딪히지 않는다. */
+#tab-alloc .alloc-hd-no{display:inline-flex;align-items:center;justify-content:center;
+  width:18px;height:18px;border-radius:5px;background:var(--alloc-no-bg);color:var(--alloc-no-fg);
+  font-size:11px;font-weight:800;flex:none}
+
+/* 세 표를 합치면 본문만 80줄이 넘는다 — 행 높이·글자를 한 단계씩 낮춰 시트 전체 길이를 줄인다.
+   보고 자리에서 읽는 표라 줄 간격(1.3)과 12px 글자는 남겨 둔다. */
+#tab-alloc .pl-tbl.alloc-tbl th{padding:3px 8px;font-size:10.5px;letter-spacing:.2px}
+#tab-alloc .pl-tbl.alloc-tbl td{padding:4px 8px;font-size:12px;line-height:1.3}
+#tab-alloc .pl-tbl.alloc-tbl .alloc-l1 td:first-child{padding-left:22px}
+#tab-alloc .pl-tbl.alloc-tbl .alloc-l2 td:first-child{padding-left:36px;font-size:11.5px}
+#tab-alloc .pl-tbl.alloc-tbl .alloc-sticky{min-width:96px}
+/* 집행률 배지가 칸 안에서 가장 큰 요소라 행 높이를 결정한다 — 배지도 같이 줄여야 표가 실제로 짧아진다. */
+#tab-alloc .pl-tbl .kbadge{font-size:10.5px;padding:1px 6px}
+
+/* 열이 열여섯이라, 칸마다 그은 세로선은 행이 촘촘해지면 금세 시끄러워진다 — 한 단계 옅게 낮추고
+   대신 (A)/(B)/(C) 묶음이 시작되는 자리에만 진한 선을 둬 표가 세 덩어리로 읽히게 한다. */
+#tab-alloc .pl-tbl.alloc-tbl th,#tab-alloc .pl-tbl.alloc-tbl td{border-right-color:#eef2f7}
+#tab-alloc .pl-tbl.alloc-tbl .alloc-sticky{border-right-color:#cbd5e1}
+#tab-alloc .pl-tbl.alloc-tbl th.grp-a,#tab-alloc .pl-tbl.alloc-tbl th.grp-b,
+#tab-alloc .pl-tbl.alloc-tbl th.grp-c,
+#tab-alloc .pl-tbl.alloc-tbl .alloc-humax-col,
+#tab-alloc .pl-tbl.alloc-tbl .alloc-bldg-col,
+#tab-alloc .pl-tbl.alloc-tbl .alloc-shared-col{border-left:1px solid #cbd5e1}
+/* 묶음 소계 열((A+B+C) 합계 / (A) 합계 / (C) 합계)은 굵게 — 훑을 때 눈이 여기서 멈춘다.
+   소계 열은 제 묶음 머리글 색의 가장 옅은 톤을 깔아 어느 묶음의 소계인지 색으로 알 수 있게 한다
+   (파랑=전체 / 초록=(A) Humax / 보라=(C) Shared). (C) 합계는 이미 그렇게 돼 있어 (A) 합계를 맞춘 것이다.
+   Diff 표에서는 .neg/.pos가 !important라 숫자 색이 초과=빨강 / 미달=파랑으로 그대로 이긴다. */
+#tab-alloc .pl-tbl.alloc-tbl .alloc-tot-col,
+#tab-alloc .pl-tbl.alloc-tbl .alloc-humax-col{font-weight:700}
+#tab-alloc .pl-tbl.alloc-tbl th.alloc-humax-col{background:#ecfdf5;color:#047857}
+#tab-alloc .pl-tbl.alloc-tbl td.alloc-humax-col{background:#f0fdf4;color:#047857}
+/* 본사(HKR)·법인·Total 같은 합계 행이 표의 뼈대다 — 위에 선을 그어 덩어리 경계를 만들고,
+   맨 아래 Total만 한 단계 더 진하게 해 표가 어디서 끝나는지 알 수 있게 한다. */
+#tab-alloc .pl-tbl.alloc-tbl tbody .tot td{border-top:1px solid #cbd5e1}
+#tab-alloc .pl-tbl.alloc-tbl tbody tr.tot:last-child td{border-top:1.5px solid #94a3b8}
+
 .pl-tbl.parallel-tbl th.grp-total{background:#eff6ff;color:#1d4ed8}
 .pl-tbl.parallel-tbl th.grp-hq{background:#e0e7ff;color:#3730a3;border-left:1px solid #c7d2fe}
 .pl-tbl.parallel-tbl th.grp-corp{background:#fce7f3;color:#9d174d;border-left:1px solid #fbcfe8}
@@ -392,7 +450,7 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-summary .panel-title,#tab-evcs .panel-title,#tab-category .panel-title{font-size:12px}
   #tab-summary .panel-sub,#tab-evcs .panel-sub,#tab-category .panel-sub{font-size:10px}
   #tab-summary .chart-wrap-lg,#tab-evcs .chart-wrap-lg,#tab-category .chart-wrap-lg{height:78px}
-  #tab-summary .section-lead,#tab-evcs .section-lead,#tab-category .section-lead,#tab-alloc .section-lead{margin:7px 0 3px}
+  #tab-summary .section-lead,#tab-evcs .section-lead,#tab-category .section-lead{margin:7px 0 3px}
   #tab-summary .sheet-hd,#tab-evcs .sheet-hd,#tab-category .sheet-hd,#tab-alloc .sheet-hd{margin-bottom:6px;padding-bottom:4px}
   #tab-summary .sheet-title,#tab-evcs .sheet-title,#tab-category .sheet-title,#tab-alloc .sheet-title{font-size:15px}
   #tab-summary .tbl-hd,#tab-evcs .tbl-hd,#tab-category .tbl-hd,#tab-alloc .tbl-hd{padding:5px 10px;font-size:11px}
@@ -406,8 +464,18 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
      세 장을 이어 붙여 아낄 만한 분량도 아니라 각각 한 페이지를 주는 편이 읽기 쉽다. */
   #tab-alloc .alloc-print-block{break-inside:avoid}
   #tab-alloc .alloc-print-block + .alloc-print-block{break-before:page}
-  /* 새 페이지 첫 머리글은 위 여백이 필요 없다 (페이지 상단 여백이 이미 있다). */
-  #tab-alloc .alloc-print-block + .alloc-print-block .section-lead{margin-top:0}
+  /* 표 머리(제목 줄)는 화면용 크기가 #tab-alloc으로 붙어 있어 위의 공통 .tbl-hd 축소 규칙이 못 이긴다
+     — 인쇄용 크기를 같은 자리에서 다시 적어 준다. 왼쪽 띠·머리띠 색은 인쇄에서도 남긴다
+     (배부판은 한 장씩 따로 인쇄되므로, 이 장이 예산인지 실적인지 종이 위에서도 띠로 구분된다). */
+  #tab-alloc .alloc-hd{padding:4px 10px;font-size:11px}
+  #tab-alloc .alloc-hd-no{width:14px;height:14px;border-radius:4px;font-size:9px}
+  /* 화면용 줄 간격(1.3)이 그대로 남으면 행마다 조금씩 커져 페이지 한도에 가까워진다. */
+  #tab-alloc .pl-tbl.alloc-tbl td{line-height:1.2}
+  /* 위 .pl-tbl td 여백 규칙이 !important라 들여쓰기까지 함께 지워져, 종이 위에서는 본사(HKR)와
+     그 아래 부문이 같은 자리에서 시작했다 — 화면과 같은 계층이 보이도록 인쇄용 들여쓰기를 되돌린다
+     (첫 열은 min-width 96px이 있어 이만큼 들여써도 표가 넓어지지 않는다). */
+  #tab-alloc .pl-tbl.alloc-tbl .alloc-l1 td:first-child{padding-left:16px!important}
+  #tab-alloc .pl-tbl.alloc-tbl .alloc-l2 td:first-child{padding-left:26px!important}
   /* 비고가 여러 줄로 늘어나면 표가 한 페이지를 넘긴다 — 인쇄에서는 한 줄로 줄이고 넘치면 …로 자른다
      (화면에서는 전체 문장을 그대로 볼 수 있다). */
   #tab-summary .pl-tbl .remark-cell,#tab-evcs .pl-tbl .remark-cell,#tab-category .pl-tbl .remark-cell{font-size:8px;line-height:1.2}

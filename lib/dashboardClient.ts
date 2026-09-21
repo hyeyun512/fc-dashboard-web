@@ -1120,16 +1120,16 @@ export function initDashboard(data: DashboardData): () => void {
     let html =
       `<table class="pl-tbl alloc-tbl"><thead>` +
       `<tr><th rowspan="2">Company</th><th rowspan="2" class="alloc-tot-col">(A+B+C)<br>합계</th>` +
-      `<th colspan="6" class="grp-a">(A) Humax</th><th rowspan="2">(B)<br>건물</th><th colspan="8" class="grp-c">(C) Shared</th></tr>` +
-      `<tr><th>합계</th><th>STB</th><th>Mobility</th><th>EVCS(국내)</th><th>EVCS(해외)</th><th>Humax(공통)</th>` +
-      `<th>합계</th><th>H.Mobility</th><th>H.EV</th><th>하이파킹</th><th>피플카</th><th>위너콤</th><th>홀딩스</th><th>H.Networks</th></tr>` +
+      `<th colspan="6" class="grp-a">(A) Humax</th><th rowspan="2" class="grp-b">(B)<br>건물</th><th colspan="8" class="grp-c">(C) Shared</th></tr>` +
+      `<tr><th class="alloc-humax-col">합계</th><th>STB</th><th>Mobility</th><th>EVCS(국내)</th><th>EVCS(해외)</th><th>Humax(공통)</th>` +
+      `<th class="alloc-shared-col">합계</th><th>H.Mobility</th><th>H.EV</th><th>하이파킹</th><th>피플카</th><th>위너콤</th><th>홀딩스</th><th>H.Networks</th></tr>` +
       `</thead><tbody>`;
     rows.forEach((r) => {
       const rowClass = r.level === 0 ? "tot" : r.level === 1 ? "alloc-l1" : "alloc-l2";
       html +=
         `<tr class="${rowClass}"><td class="alloc-sticky">${r.label}</td><td class="alloc-tot-col">${money(r.grandTotal)}</td>` +
-        `<td>${money(r.humaxTotal)}</td><td>${money(r.stb)}</td><td>${money(r.mobility)}</td><td>${money(r.evcsDomestic)}</td><td>${money(r.evcsOverseas)}</td><td>${money(r.humaxCommon)}</td>` +
-        `<td>${money(r.building)}</td><td class="alloc-shared-col">${money(r.sharedTotal)}</td>` +
+        `<td class="alloc-humax-col">${money(r.humaxTotal)}</td><td>${money(r.stb)}</td><td>${money(r.mobility)}</td><td>${money(r.evcsDomestic)}</td><td>${money(r.evcsOverseas)}</td><td>${money(r.humaxCommon)}</td>` +
+        `<td class="alloc-bldg-col">${money(r.building)}</td><td class="alloc-shared-col">${money(r.sharedTotal)}</td>` +
         `<td>${money(r.hMobility)}</td><td>${money(r.hEv)}</td><td>${money(r.hiparking)}</td><td>${money(r.peoplecar)}</td><td>${money(r.winercom)}</td><td>${money(r.holdings)}</td><td>${money(r.hNetworks)}</td></tr>`;
     });
     html += "</tbody></table>";
@@ -1212,9 +1212,9 @@ export function initDashboard(data: DashboardData): () => void {
     let html =
       `<table class="pl-tbl alloc-tbl"><thead>` +
       `<tr><th rowspan="2">Company</th><th rowspan="2" class="alloc-tot-col">(A+B+C)<br>차이</th><th rowspan="2">집행률</th>` +
-      `<th colspan="6" class="grp-a">(A) Humax</th><th rowspan="2">(B)<br>건물</th><th colspan="8" class="grp-c">(C) Shared</th></tr>` +
-      `<tr><th>합계</th><th>STB</th><th>Mobility</th><th>EVCS(국내)</th><th>EVCS(해외)</th><th>Humax(공통)</th>` +
-      `<th>합계</th><th>H.Mobility</th><th>H.EV</th><th>하이파킹</th><th>피플카</th><th>위너콤</th><th>홀딩스</th><th>H.Networks</th></tr>` +
+      `<th colspan="6" class="grp-a">(A) Humax</th><th rowspan="2" class="grp-b">(B)<br>건물</th><th colspan="8" class="grp-c">(C) Shared</th></tr>` +
+      `<tr><th class="alloc-humax-col">합계</th><th>STB</th><th>Mobility</th><th>EVCS(국내)</th><th>EVCS(해외)</th><th>Humax(공통)</th>` +
+      `<th class="alloc-shared-col">합계</th><th>H.Mobility</th><th>H.EV</th><th>하이파킹</th><th>피플카</th><th>위너콤</th><th>홀딩스</th><th>H.Networks</th></tr>` +
       `</thead><tbody>`;
     pairs.forEach(({ a, b }) => {
       const d = diffOf(a, b);
@@ -1231,9 +1231,9 @@ export function initDashboard(data: DashboardData): () => void {
       html +=
         `<tr class="${rowClass}"><td class="alloc-sticky">${a.label}</td>` +
         `${cell(d.grandTotal, ALLOC_FIELDS, "alloc-tot-col")}${rateCell}` +
-        `${cell(d.humaxTotal, ["stb", "mobility", "evcsDomestic", "evcsOverseas", "humaxCommon"])}` +
+        `${cell(d.humaxTotal, ["stb", "mobility", "evcsDomestic", "evcsOverseas", "humaxCommon"], "alloc-humax-col")}` +
         `${cell(d.stb, ["stb"])}${cell(d.mobility, ["mobility"])}${cell(d.evcsDomestic, ["evcsDomestic"])}${cell(d.evcsOverseas, ["evcsOverseas"])}${cell(d.humaxCommon, ["humaxCommon"])}` +
-        `${cell(d.building, ["building"])}` +
+        `${cell(d.building, ["building"], "alloc-bldg-col")}` +
         `${cell(d.sharedTotal, ["hMobility", "hEv", "hiparking", "peoplecar", "winercom", "holdings", "hNetworks"], "alloc-shared-col")}` +
         `${cell(d.hMobility, ["hMobility"])}${cell(d.hEv, ["hEv"])}${cell(d.hiparking, ["hiparking"])}${cell(d.peoplecar, ["peoplecar"])}${cell(d.winercom, ["winercom"])}${cell(d.holdings, ["holdings"])}${cell(d.hNetworks, ["hNetworks"])}` +
         `</tr>`;

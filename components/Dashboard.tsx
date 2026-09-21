@@ -522,34 +522,48 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div id="allocTrendInsight" />
 
         {/* 배부판 3장은 인쇄에서 각각 한 페이지를 차지한다 — 머리글과 표가 갈라지거나 표가 중간에서
-            끊기지 않도록 한 덩어리로 묶어두고, 페이지 나눔은 globals.css의 .alloc-print-block이 맡는다. */}
-        <div className="alloc-print-block">
-          <div className="section-lead">
-            예산(BP) 배부 현황<span className="sub" id="allocBudgetSub" />
-          </div>
+            끊기지 않도록 한 덩어리로 묶어두고, 페이지 나눔은 globals.css의 .alloc-print-block이 맡는다.
+
+            세 표는 열 구성도 머리글 색도 같아, 표 위에 제목 한 줄만 띄워두면 스크롤 중에 지금 보는 것이
+            예산인지 실적인지 알 수 없다. 제목을 표 상자 안 머리로 넣어 표와 함께 다니게 하고,
+            상자마다 번호 칩·머리띠 색·왼쪽 세로 띠를 달아 어느 대목을 보고 있든 소속이 드러나게 한다.
+            구분은 표를 감싸는 틀이 맡는다 — 칸 안 색(초과=빨강/미달=파랑)과 섞이지 않게 하기 위해서다. */}
+        <div className="alloc-print-block alloc-block alloc-block-budget">
           <div className="tbl-box">
+            <div className="tbl-hd alloc-hd">
+              <div className="alloc-hd-title">
+                <span className="alloc-hd-no">1</span>예산(BP) 배부 현황
+              </div>
+              <span className="sub" id="allocBudgetSub" />
+            </div>
             <div className="alloc-scroll">
               <div id="allocBudgetTable" />
             </div>
           </div>
         </div>
 
-        <div className="alloc-print-block">
-          <div className="section-lead">
-            실적 배부 현황<span className="sub" id="allocActualSub" />
-          </div>
+        <div className="alloc-print-block alloc-block alloc-block-actual">
           <div className="tbl-box">
+            <div className="tbl-hd alloc-hd">
+              <div className="alloc-hd-title">
+                <span className="alloc-hd-no">2</span>실적 배부 현황
+              </div>
+              <span className="sub" id="allocActualSub" />
+            </div>
             <div className="alloc-scroll">
               <div id="allocActualTable" />
             </div>
           </div>
         </div>
 
-        <div className="alloc-print-block">
-          <div className="section-lead">
-            Diff(실적-예산) 배부 현황<span className="sub" id="allocDiffSub" />
-          </div>
+        <div className="alloc-print-block alloc-block alloc-block-diff">
           <div className="tbl-box">
+            <div className="tbl-hd alloc-hd">
+              <div className="alloc-hd-title">
+                <span className="alloc-hd-no">3</span>Diff(실적-예산) 배부 현황
+              </div>
+              <span className="sub" id="allocDiffSub" />
+            </div>
             <div className="alloc-scroll">
               <div id="allocDiffTable" />
             </div>
