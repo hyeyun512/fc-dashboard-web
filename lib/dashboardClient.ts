@@ -1085,6 +1085,14 @@ export function initDashboard(data: DashboardData): () => void {
   }
 
   // ================= ALLOCATION BOARD TAB =================
+  /**
+   * 배부판에서 행을 아예 내리는 법인 (2026-09-21 사용자 지시).
+   *
+   * HAU는 1~7월 누계가 41,068원(은행 송금수수료 4건)뿐이라 어느 칸이든 백만원 단위로는 0으로 찍힌다 —
+   * 읽을 것이 없는 행이 자리만 차지한다. 금액은 법인·Total 합계에 그대로 남으므로 표의 합은 맞다
+   * (백만원 미만이라 합계 표시도 달라지지 않는다).
+   */
+  const ALLOC_HIDDEN_CORPS = ["HAU"];
   // 실적 제외 등으로 모든 열이 0원인 부서/법인사 행은 표를 어지럽히기만 하므로 숨긴다
   // (본사/법인/Total 같은 구조상의 합계 행(level 0)은 0이어도 항상 유지).
   function isAllocRowEmpty(r: AllocationRow): boolean {
@@ -1108,7 +1116,7 @@ export function initDashboard(data: DashboardData): () => void {
   // Shared 그룹의 7개 세부 열(H.Mobility~H.Networks)은 기본적으로 화면 밖으로 밀어두고,
   // 자세히 보고 싶을 때만 표를 오른쪽으로 스크롤해서 보게 한다 (가독성을 위해 기본은 숨김에 가깝게).
   function allocTable(allRows: AllocationRow[]): string {
-    const rows = allRows.filter((r) => r.level === 0 || !isAllocRowEmpty(r));
+    const rows = allRows.filter((r) => r.level === 0 || (!isAllocRowEmpty(r) && !ALLOC_HIDDEN_CORPS.includes(r.label)));
     let html =
       `<table class="pl-tbl alloc-tbl"><thead>` +
       `<tr><th rowspan="2">Company</th><th rowspan="2" class="alloc-tot-col">(A+B+C)<br>합계</th>` +
@@ -1196,7 +1204,10 @@ export function initDashboard(data: DashboardData): () => void {
         return b ? { a, b } : null;
       })
       .filter((x): x is { a: AllocationRow; b: AllocationRow } => x !== null)
-      .filter(({ a, b }) => a.level === 0 || !isAllocRowEmpty({ ...a, ...diffOf(a, b) } as AllocationRow));
+      .filter(
+        ({ a, b }) =>
+          a.level === 0 || (!isAllocRowEmpty({ ...a, ...diffOf(a, b) } as AllocationRow) && !ALLOC_HIDDEN_CORPS.includes(a.label))
+      );
 
     let html =
       `<table class="pl-tbl alloc-tbl"><thead>` +
