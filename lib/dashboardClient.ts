@@ -65,6 +65,21 @@ export function initDashboard(data: DashboardData): () => void {
   const lastActualIdx = allMonths.indexOf(months[months.length - 1]);
 
   const fmtM = (nVal: number) => Math.round(nVal / 1e6).toLocaleString("ko-KR");
+  const fmtWon = (nVal: number) => Math.round(nVal).toLocaleString("ko-KR");
+  /**
+   * 표에 찍는 금액 한 칸.
+   *
+   * 화면에는 지금처럼 백만원 반올림값만 보이지만, 원 단위 값을 함께 달아 둔다 —
+   * 커서를 올리면 원 단위가 뜨고(title), 복사하면 그 값이 엑셀로 넘어간다(onCopy).
+   * 반올림값만 있으면 백만원 미만이 사라져 엑셀에서 다시 더할 수 없기 때문이다.
+   *
+   * 숫자만 들어가는 칸에만 쓴다. 비고처럼 문장이 섞인 칸에 쓰면 복사할 때
+   * 칸 전체가 숫자로 바뀌어 문장이 사라진다.
+   */
+  const money = (nVal: number, extraTip = ""): string => {
+    const tip = `${fmtWon(nVal)}원` + (extraTip ? `\n${extraTip}` : "");
+    return `<span class="won" data-won="${Math.round(nVal)}" title="${escAttr(tip)}">${fmtM(nVal)}</span>`;
+  };
   const cls = (v: number) => (v < 0 ? ' class="neg"' : "");
   const diffCls = (d: number) => (d > 0 ? ' class="neg"' : d < 0 ? ' class="pos"' : "");
 
@@ -107,9 +122,9 @@ export function initDashboard(data: DashboardData): () => void {
     return (
       `<div class="kcard kstack"><div class="kcard-bar" style="background:${accent}"></div>` +
       `<div class="kstack-hd">${scopeLabel()}</div>` +
-      row("집행 실적", `${fmtM(actual)}<span class="kunit">백만원</span>`) +
+      row("집행 실적", `${money(actual)}<span class="kunit">백만원</span>`) +
       (momHtml ? `<div class="kstack-mom">${momHtml}</div>` : "") +
-      row("예산", `${fmtM(budget)}<span class="kunit">백만원</span>`) +
+      row("예산", `${money(budget)}<span class="kunit">백만원</span>`) +
       `<div class="kstack-row kstack-row-rate">` +
       `<span class="kstack-label">집행률<span class="kstack-note">예산 대비</span></span>` +
       `<span class="kstack-rate ${rateTextClass(rate)}">${rateText}</span></div>` +
@@ -745,8 +760,8 @@ export function initDashboard(data: DashboardData): () => void {
     // 비고는 span으로 한 번 감싼다 — td에는 max-width/줄 제한이 잘 먹지 않아, 인쇄에서 줄 수를 줄일 때 필요하다.
     const remarkCell = remark === undefined ? "" : `<td class="remark-cell"><span class="remark-clip">${remark}</span></td>`;
     return `<tr class="${rowClass}"><td>${nameCell}</td>
-      <td${cls(budget)}>${fmtM(budget)}</td><td${cls(actual)}>${fmtM(actual)}</td>
-      <td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${fmtM(diff)}</td>
+      <td${cls(budget)}>${money(budget)}</td><td${cls(actual)}>${money(actual)}</td>
+      <td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${money(diff)}</td>
       <td class="badge-cell">${rateBadgeCell(rate)}</td>${remarkCell}</tr>`;
   }
   function table5(rowsHtml: string, firstColLabel = "구분", extraColLabel?: string): string {
@@ -757,8 +772,8 @@ export function initDashboard(data: DashboardData): () => void {
   function quadCells(actual: number, budget: number): string {
     const diff = actual - budget;
     return (
-      `<td${cls(budget)}>${fmtM(budget)}</td><td${cls(actual)}>${fmtM(actual)}</td>` +
-      `<td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${fmtM(diff)}</td>` +
+      `<td${cls(budget)}>${money(budget)}</td><td${cls(actual)}>${money(actual)}</td>` +
+      `<td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${money(diff)}</td>` +
       `<td class="badge-cell">${rateBadgeCell(rateOf(actual, budget))}</td>`
     );
   }
@@ -798,8 +813,8 @@ export function initDashboard(data: DashboardData): () => void {
       .map((r) => {
         const diff = r.actual - r.budget;
         return `<tr><td>${r.category}</td><td>${r.accountLabel}</td>
-          <td${cls(r.budget)}>${fmtM(r.budget)}</td><td${cls(r.actual)}>${fmtM(r.actual)}</td>
-          <td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${fmtM(diff)}</td>
+          <td${cls(r.budget)}>${money(r.budget)}</td><td${cls(r.actual)}>${money(r.actual)}</td>
+          <td${diffCls(diff)}>${diff >= 0 ? "+" : ""}${money(diff)}</td>
           <td class="badge-cell">${rateBadgeCell(rateOf(r.actual, r.budget))}</td>
           <td class="remark-cell"><span class="remark-clip">${mainAccountRemark(r)}</span></td></tr>`;
       })
@@ -808,8 +823,8 @@ export function initDashboard(data: DashboardData): () => void {
     const totB = rows.reduce((sum, r) => sum + r.budget, 0);
     const totDiff = totA - totB;
     const totRow = `<tr class="tot"><td colspan="2">대계정 합계</td>
-      <td>${fmtM(totB)}</td><td>${fmtM(totA)}</td>
-      <td${diffCls(totDiff)}>${totDiff >= 0 ? "+" : ""}${fmtM(totDiff)}</td>
+      <td>${money(totB)}</td><td>${money(totA)}</td>
+      <td${diffCls(totDiff)}>${totDiff >= 0 ? "+" : ""}${money(totDiff)}</td>
       <td class="badge-cell">${rateBadgeCell(rateOf(totA, totB))}</td>
       <td></td></tr>`;
     return `<table class="pl-tbl"><thead><tr><th>구분</th><th>대계정</th><th>예산</th><th>실적</th><th>차이</th><th>집행률</th><th class="remark-th">비고</th></tr></thead><tbody>${bodyRows}${totRow}</tbody></table>`;
@@ -1031,8 +1046,8 @@ export function initDashboard(data: DashboardData): () => void {
     const certCumB = certCum.domestic.budget + certCum.overseas.budget;
     setHtml(
       "certSide",
-      `<div class="cert-metric"><div class="cert-label">누계 예산</div><div class="cert-value">${fmtM(certCumB)}<span class="kunit"> 백만원</span></div></div>` +
-        `<div class="cert-metric"><div class="cert-label">누계 실적</div><div class="cert-value">${fmtM(certCumA)}<span class="kunit"> 백만원</span></div></div>` +
+      `<div class="cert-metric"><div class="cert-label">누계 예산</div><div class="cert-value">${money(certCumB)}<span class="kunit"> 백만원</span></div></div>` +
+        `<div class="cert-metric"><div class="cert-label">누계 실적</div><div class="cert-value">${money(certCumA)}<span class="kunit"> 백만원</span></div></div>` +
         `<div class="cert-metric"><div class="cert-label">누계 집행률</div><div class="cert-value">${rateBadgeCell(rateOf(certCumA, certCumB))}</div></div>` +
         `<div class="cert-note">${data.byMonth[currentMonth].cumulative.label} 기준</div>`
     );
@@ -1088,10 +1103,10 @@ export function initDashboard(data: DashboardData): () => void {
     rows.forEach((r) => {
       const rowClass = r.level === 0 ? "tot" : r.level === 1 ? "alloc-l1" : "alloc-l2";
       html +=
-        `<tr class="${rowClass}"><td class="alloc-sticky">${r.label}</td><td class="alloc-tot-col">${fmtM(r.grandTotal)}</td>` +
-        `<td>${fmtM(r.humaxTotal)}</td><td>${fmtM(r.stb)}</td><td>${fmtM(r.mobility)}</td><td>${fmtM(r.evcsDomestic)}</td><td>${fmtM(r.evcsOverseas)}</td><td>${fmtM(r.humaxCommon)}</td>` +
-        `<td>${fmtM(r.building)}</td><td class="alloc-shared-col">${fmtM(r.sharedTotal)}</td>` +
-        `<td>${fmtM(r.hMobility)}</td><td>${fmtM(r.hEv)}</td><td>${fmtM(r.hiparking)}</td><td>${fmtM(r.peoplecar)}</td><td>${fmtM(r.winercom)}</td><td>${fmtM(r.holdings)}</td><td>${fmtM(r.hNetworks)}</td></tr>`;
+        `<tr class="${rowClass}"><td class="alloc-sticky">${r.label}</td><td class="alloc-tot-col">${money(r.grandTotal)}</td>` +
+        `<td>${money(r.humaxTotal)}</td><td>${money(r.stb)}</td><td>${money(r.mobility)}</td><td>${money(r.evcsDomestic)}</td><td>${money(r.evcsOverseas)}</td><td>${money(r.humaxCommon)}</td>` +
+        `<td>${money(r.building)}</td><td class="alloc-shared-col">${money(r.sharedTotal)}</td>` +
+        `<td>${money(r.hMobility)}</td><td>${money(r.hEv)}</td><td>${money(r.hiparking)}</td><td>${money(r.peoplecar)}</td><td>${money(r.winercom)}</td><td>${money(r.holdings)}</td><td>${money(r.hNetworks)}</td></tr>`;
     });
     html += "</tbody></table>";
     return html;
@@ -1181,7 +1196,8 @@ export function initDashboard(data: DashboardData): () => void {
         const tip = diffTooltip(accMap, fields);
         const signClass = v > 0 ? "neg" : v < 0 ? "pos" : "";
         const cls = [extraClass, signClass, tip ? "alloc-diff-hint" : ""].filter(Boolean).join(" ");
-        return `<td class="${cls}"${tip ? ` title="${escAttr(tip)}"` : ""}>${v >= 0 ? "+" : ""}${fmtM(v)}</td>`;
+        // 숫자 위에는 원 단위와 원인 대계정을 함께 띄운다 — 칸에만 달면 숫자를 가리켰을 때 원인이 가려진다.
+        return `<td class="${cls}"${tip ? ` title="${escAttr(tip)}"` : ""}>${v >= 0 ? "+" : ""}${money(v, tip)}</td>`;
       };
       const rowClass = a.level === 0 ? "tot" : a.level === 1 ? "alloc-l1" : "alloc-l2";
       const rateCell = `<td class="badge-cell">${rateBadgeCell(rateOf(a.grandTotal, b.grandTotal))}</td>`;
@@ -1238,7 +1254,7 @@ export function initDashboard(data: DashboardData): () => void {
             .sort((a, b) => Math.abs(b.diff[dim.key]) - Math.abs(a.diff[dim.key]))[0];
       const value = quiet
         ? `<div class="alloc-card-val alloc-card-quiet">예산 수준</div>`
-        : `<div class="alloc-card-val ${total > 0 ? "neg" : "pos"}">${total > 0 ? "+" : ""}${fmtM(total)}<span class="alloc-card-unit">백만 ${
+        : `<div class="alloc-card-val ${total > 0 ? "neg" : "pos"}">${total > 0 ? "+" : ""}${money(total)}<span class="alloc-card-unit">백만 ${
             total > 0 ? "초과" : "미달"
           }</span></div>`;
       const cause =
@@ -1274,9 +1290,9 @@ export function initDashboard(data: DashboardData): () => void {
         const total = v.humaxTotal + v.building;
         const cls = [r.bold ? "tot" : "", r.indent ? "fee-sub" : ""].filter(Boolean).join(" ");
         return (
-          `<tr class="${cls}"><td>${r.label}</td><td class="alloc-tot-col">${fmtM(total)}</td>` +
-          `<td>${fmtM(v.stb)}</td><td>${fmtM(v.mobility)}</td><td>${fmtM(v.evcsDomestic)}</td><td>${fmtM(v.evcsOverseas)}</td><td>${fmtM(v.humaxCommon)}</td>` +
-          `<td>${fmtM(v.building)}</td></tr>`
+          `<tr class="${cls}"><td>${r.label}</td><td class="alloc-tot-col">${money(total)}</td>` +
+          `<td>${money(v.stb)}</td><td>${money(v.mobility)}</td><td>${money(v.evcsDomestic)}</td><td>${money(v.evcsOverseas)}</td><td>${money(v.humaxCommon)}</td>` +
+          `<td>${money(v.building)}</td></tr>`
         );
       })
       .join("");
@@ -1579,9 +1595,9 @@ export function initDashboard(data: DashboardData): () => void {
    * (이전 표는 금액이 당월인데 집행률만 누계라 계산이 맞지 않아 보였다).
    */
   function evcsSplitTableBody(monthE: EvcsBlock, cumE: EvcsBlock): string {
-    const cell = (v: number) => `<td>${fmtM(v)}</td>`;
+    const cell = (v: number) => `<td>${money(v)}</td>`;
     const line = (label: string, m: number, c: number, a: number, cls = "") =>
-      `<tr class="${cls}"><td>${label}</td>${cell(m)}<td class="col-sum">${fmtM(c)}</td>${cell(a)}${annualRateCell(c, a)}</tr>`;
+      `<tr class="${cls}"><td>${label}</td>${cell(m)}<td class="col-sum">${money(c)}</td>${cell(a)}${annualRateCell(c, a)}</tr>`;
 
     // 소계를 그룹 머리행으로 올리고 국내/해외를 그 아래 하위 행으로 둔다 (별도 머리행 없이 계층 표현).
     // 값이 전부 0인 하위 행(예: 법인의 국내 배부)은 읽는 사람에게 의미가 없어 생략한다.
@@ -1681,6 +1697,72 @@ export function initDashboard(data: DashboardData): () => void {
   const modeToggle = el("modeToggle");
   modeToggle?.addEventListener("click", onModeToggleClick);
 
+  // ================= 복사 =================
+  /**
+   * 표의 숫자를 복사하면 엑셀에 **원 단위**로 들어가게 한다.
+   *
+   * 화면에는 백만원 반올림값만 찍히므로 그대로 붙여 넣으면 백만원 미만이 사라지고,
+   * 붙여 넣은 값끼리 더해도 원장과 맞지 않는다. 그래서 복사하는 순간 숫자 칸의 내용을
+   * data-won(원 단위)으로 바꿔 클립보드에 싣는다. 화면 표시는 건드리지 않는다.
+   *
+   * 숫자만 든 칸만 바꾼다 — 비고처럼 문장이 섞인 칸은 그대로 둬야 글이 숫자로 바뀌지 않는다.
+   */
+  const stripSign = (s: string) => s.replace(/[\s+,]/g, "");
+  function onCopy(ev: ClipboardEvent) {
+    const sel = window.getSelection();
+    if (!sel || sel.isCollapsed || !ev.clipboardData) return;
+    const range = sel.getRangeAt(0);
+    const holder = document.createElement("div");
+    holder.appendChild(range.cloneContents());
+
+    let replaced = 0;
+    holder.querySelectorAll<HTMLElement>("td, th").forEach((cell) => {
+      const spans = cell.querySelectorAll<HTMLElement>(".won");
+      if (spans.length !== 1) return;
+      const raw = spans[0].dataset.won;
+      if (!raw) return;
+      // 칸에 숫자 말고 다른 글자가 있으면(비고 등) 건드리지 않는다.
+      if (stripSign(cell.textContent || "") !== stripSign(spans[0].textContent || "")) return;
+      cell.textContent = raw;
+      replaced++;
+    });
+
+    if (!replaced) {
+      // 칸 전체가 아니라 숫자 하나만 긁은 경우 (더블클릭 등).
+      const node = range.commonAncestorContainer;
+      const host = (node.nodeType === Node.ELEMENT_NODE ? (node as Element) : node.parentElement)?.closest(".won") as HTMLElement | null;
+      const raw = host?.dataset.won;
+      if (!raw || stripSign(sel.toString()) !== stripSign(host?.textContent || "")) return;
+      ev.clipboardData.setData("text/plain", raw);
+      ev.clipboardData.setData("text/html", raw);
+      ev.preventDefault();
+      return;
+    }
+
+    // 엑셀은 text/html의 표 구조를 보고 칸을 나눈다. 긁은 범위에 따라 표/행 껍데기가 빠진 채
+    // 넘어오므로(한 행 안만 긁으면 td만 남는다) 빠진 만큼 다시 씌워야 칸이 갈린다.
+    const cellText = (c: Element) => (c.textContent || "").trim();
+    const rows = Array.from(holder.querySelectorAll("tr"));
+    const loose = rows.length === 0 ? Array.from(holder.querySelectorAll("td, th")) : [];
+    const html = holder.querySelector("table")
+      ? holder.innerHTML
+      : rows.length
+        ? `<table>${holder.innerHTML}</table>`
+        : loose.length
+          ? `<table><tr>${holder.innerHTML}</tr></table>`
+          : holder.innerHTML;
+    const plain = rows.length
+      ? rows.map((tr) => Array.from(tr.querySelectorAll("td, th")).map(cellText).join("\t")).join("\n")
+      : loose.length
+        ? loose.map(cellText).join("\t")
+        : (holder.textContent || "").trim();
+
+    ev.clipboardData.setData("text/html", html);
+    ev.clipboardData.setData("text/plain", plain);
+    ev.preventDefault();
+  }
+  document.addEventListener("copy", onCopy);
+
   renderAll();
 
   return () => {
@@ -1693,6 +1775,7 @@ export function initDashboard(data: DashboardData): () => void {
     el("fsBtn")?.removeEventListener("click", onFsClick);
     document.removeEventListener("keydown", onSlideKey);
     document.removeEventListener("fullscreenchange", onFsChange);
+    document.removeEventListener("copy", onCopy);
     Object.keys(charts).forEach(destroyChart);
   };
 }

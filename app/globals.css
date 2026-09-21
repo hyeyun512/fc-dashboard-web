@@ -98,6 +98,9 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 .note{font-size:12px;color:#94a3b8;padding:8px 20px 12px}
 .tbl-scroll{overflow-x:auto}
 
+/* 금액 한 칸. 화면에는 백만원만 찍히지만 커서를 올리면 원 단위가 뜨고, 복사하면 원 단위가 따라간다
+   (lib/dashboardClient.ts의 money()/onCopy). 표시가 달라지지 않게 커서 모양만 바꿔 둔다. */
+.won{cursor:help}
 .pl-tbl{width:100%;border-collapse:collapse}
 .pl-tbl th{padding:8px 14px;font-size:11.5px;font-weight:700;color:#94a3b8;background:#f8fafc;border-bottom:0.5px solid #e2e8f0;text-align:center;letter-spacing:.3px;white-space:nowrap;text-transform:uppercase}
 .pl-tbl td{padding:9px 14px;font-size:13px;border-bottom:0.5px solid #f1f5f9;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
