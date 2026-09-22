@@ -1366,6 +1366,78 @@ export function initDashboard(data: DashboardData): () => void {
   // 그 달 문구가 없으면 빈 문자열을 넣고, CSS의 :empty 규칙이 박스째 숨긴다.
   const SUMMARY_ACCENT = "#1d4ed8";
   const summaryTitleHtml = `<div class="summary-callout-title" style="color:${SUMMARY_ACCENT}">Summary</div>`;
+  /* ---- 문구 조판 ----
+     문구는 엑셀에서 온 그대로 쓰고(글자를 고치지 않는다) 보이는 무게만 나눈다.
+     한 줄이 전부 같은 회색·같은 굵기라 훑어볼 곳이 없다는 것이 문제였으므로,
+     눈이 걸릴 지점을 딱 두 축으로만 만든다 — 강조가 셋을 넘으면 아무것도 강조되지 않는다.
+       ① 수치(금액·비율): 한 단계 진한 먹 + 굵기. "얼마인가"를 먼저 읽게 한다.
+       ② 방향(초과/미달, 부호 붙은 증감): 표와 같은 색 언어로 초과=빨강 / 미달=파랑.
+     그리고 콜론 앞 머리표는 강조 대신 뒤로 물려(③) 뒤의 값이 앞에 서게 한다.
+     글자 크기·줄 간격은 건드리지 않는다 — 인쇄 한 페이지(733px) 여유가 65px뿐이라
+     줄이 한 번만 더 접혀도 넘친다. */
+
+  /** '언제'를 가리키는 수(4월, 1Q, 26년, 15차, 3개월)는 금액이 아니다 — 굵게 하면 한 줄이 통째로 굵어져 정작 수치가 묻힌다. */
+  const COMMENT_TIME_UNIT = /^(월|년|차|개월|분기|Q)$/;
+  /**
+   * 한 번에 훑어 조판 대상만 집어낸다. 잡아내는 것은 셋뿐이다.
+   *   1) 방향을 말하는 낱말 '초과'/'미달'
+   *   2) 부호(+/-) — 바로 뒤에 숫자가 붙은 것만 부호로 본다 ('관리비 0.6억 - 실비수입 0.2억'의 빼기는 걸리지 않는다)
+   *   3) 숫자 + 단위 — '1~3월'이나 '441~493백만'처럼 물결로 이은 범위까지 한 덩어리로 본다
+   * 천 단위 쉼표는 뒤에 숫자 세 자리가 붙은 것만 수의 일부로 본다 ('지급수수료 +106, 특허처리비'의
+   * 쉼표까지 삼키면 수가 아닌 글자에 색이 묻는다). 단위는 긴 것부터 적어야 '백만원'이 '백만'에,
+   * '개월'이 '월'에 먼저 먹히지 않는다. '배'는 뒤에 한글이 이어지면 단위가 아니다 ('4배부기준').
+   */
+  const COMMENT_NUM = String.raw`\d+(?:,\d{3})*(?:\.\d+)?`;
+  const COMMENT_TOKEN = new RegExp(
+    String.raw`(초과|미달)|([+-]?)(${COMMENT_NUM}(?:~${COMMENT_NUM})?)(백만원|억원|천원|백만|억|원|%|개월|분기|년|차|월|Q|배(?![가-힣]))?`,
+    "g"
+  );
+  /**
+   * 콜론 앞 머리표('예산 초과:', '항목별 집행률:', '-7월:'). 그 줄이 무엇에 대한 것인지만 알려 주는 말이라
+   * 한 단계 흐리게 두고 값을 앞세운다. 다만 '용인 0.8억(총 0.9억):'처럼 머리표 자리에 금액이 들어앉는 줄이 있어,
+   * 괄호가 끼었거나(문자 클래스에서 배제) 금액·비율로 끝나면(아래 gate) 머리표로 보지 않는다 — 값을 흐리면 안 된다.
+   */
+  const COMMENT_KEY = /^([^:()\n]{1,24}):\s+(?=\S)/;
+  const COMMENT_KEY_IS_VALUE = /(\d\s*(백만원|억원|천원|백만|억|원)|[\d%])$/;
+
+  /** 숫자·방향에만 span을 씌운다. 그 밖의 글자는 원문 그대로 지나간다. */
+  function typesetInline(text: string): string {
+    let out = "";
+    let cut = 0;
+    COMMENT_TOKEN.lastIndex = 0;
+    for (let m = COMMENT_TOKEN.exec(text); m; m = COMMENT_TOKEN.exec(text)) {
+      out += text.slice(cut, m.index);
+      cut = m.index + m[0].length;
+      if (m[1]) {
+        // 초과=빨강 / 미달=파랑 — 표의 .neg/.pos를 그대로 쓴다 (색을 새로 늘리면 표의 색과 싸운다).
+        out += `<span class="sc-dir ${m[1] === "초과" ? "neg" : "pos"}">${m[1]}</span>`;
+        continue;
+      }
+      if (COMMENT_TIME_UNIT.test(m[4] || "")) {
+        // 시점 표기는 무게를 바꾸지 않는다. 다만 '7월'이 '7'과 '월'로 갈려 줄이 넘어가지 않게 묶어만 둔다.
+        out += `<span class="sc-t">${m[0]}</span>`;
+        continue;
+      }
+      // 부호가 붙은 수는 그 자체가 증감이다 — 굵기는 그대로 두고 색만 방향으로 바꿔, 강조 자리를 늘리지 않는다.
+      const dir = m[2] === "+" ? " neg" : m[2] === "-" ? " pos" : "";
+      out += `<span class="sc-num${dir}">${m[0]}</span>`;
+    }
+    return out + text.slice(cut);
+  }
+
+  /** 줄 맨 앞의 머리표를 떼어 흐리게 두고, 머리표와 본문을 각각 조판한다. */
+  function typesetCommentLine(line: string): string {
+    const key = line.match(COMMENT_KEY);
+    if (!key || COMMENT_KEY_IS_VALUE.test(key[1].trim())) return typesetInline(line);
+    return `<span class="sc-key">${typesetInline(key[1])}:</span> ` + typesetInline(line.slice(key[0].length));
+  }
+
+  /** 한 항목 안에서 줄만 나뉜 경우(엑셀의 '[]'), 머리표는 첫 줄에만 있다. */
+  function typesetComment(raw: string): string {
+    const [head, ...rest] = raw.split("\n");
+    return [typesetCommentLine(head), ...rest.map(typesetInline)].join("<br>");
+  }
+
   /**
    * 한 줄 = 항목 하나. 엑셀에서 붙여 온 표시로 세 단계를 나눈다 — 표시가 없으면 상위(파란 점),
    * '-'는 윗줄에 딸린 하위 메모(들여쓰기 + 짧은 선), '*'는 그 아래 상세 코멘트(마커 없이 연한 회색).
@@ -1385,7 +1457,9 @@ export function initDashboard(data: DashboardData): () => void {
           // '[인건비]'처럼 대괄호만 있는 줄은 항목이 아니라 그 아래 줄들을 묶는 머리말이다 — 글머리 기호를 달지 않는다.
           const category = level === "main" ? raw.match(/^\[(.+)\]$/) : null;
           if (category) return `<li class="summary-cat">${category[1]}</li>`;
-          const body = raw.replace(/\n/g, "<br>");
+          // li가 flex라, 조판으로 생긴 span을 그대로 두면 낱낱이 flex 아이템이 되어
+          // 사이에 gap이 벌어지고 폭이 좁으면 글자가 세로로 쌓인다 — 한 겹으로 싸서 한 덩이로 흐르게 한다.
+          const body = `<span class="sc-body">${typesetComment(raw)}</span>`;
           if (level === "detail") return `<li class="summary-comment-detail">${body}</li>`;
           if (level === "sub") return `<li class="summary-comment-sub"><span class="summary-comment-submark"></span>${body}</li>`;
           return `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;

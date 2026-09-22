@@ -230,6 +230,28 @@ body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;b
 /* 하위 표시는 상위의 채운 점과 같은 모양의 '빈 고리' — 같은 계열인데 한 단계 아래임이 바로 읽힌다. */
 .summary-comment-submark{width:6px;height:6px;border-radius:50%;border:1.5px solid #cbd5e1;background:transparent;box-sizing:border-box;flex:none;margin-top:6px}
 .summary-comment-list li.summary-comment-detail{color:#94a3b8;font-size:12px;padding-left:26px;margin-top:-4px}
+
+/* ---- 한 줄 안의 조판 (dashboardClient.ts의 typesetComment가 붙인 표시) ----
+   한 줄이 전부 같은 회색·같은 굵기라 훑을 곳이 없었다. 눈이 걸릴 지점을 두 개로만 만든다.
+     .sc-num  수치(금액·비율) — 한 단계 진한 먹 + 굵기. "얼마인가"가 먼저 읽힌다.
+     .sc-dir  방향(초과/미달) — 굵기는 같게 두고 표와 같은 색 언어(.neg 빨강 / .pos 파랑)만 입힌다.
+   그리고 .sc-key(콜론 앞 머리표)는 반대로 뒤로 물려, 강조를 늘리는 대신 배경을 넓힌다.
+   글자 크기·줄 간격은 손대지 않는다 — 인쇄 한 페이지(733px) 여유가 65px뿐이라 줄이 한 번만
+   더 접혀도 넘친다. 색·굵기만 바꾸면 줄 수가 그대로다. */
+/* 조판한 한 줄은 통째로 flex 아이템 하나여야 한다 (span마다 아이템이 되면 gap이 끼어들고 글자가 세로로 쌓인다). */
+.summary-comment-list li > .sc-body{flex:1 1 auto;min-width:0}
+/* 수는 한 덩이로 읽혀야 한다 — 한글은 아무 데서나 줄이 접혀 '127백'/'만)'처럼 금액이 쪼개진다.
+   부호(+/-)가 붙은 수는 그 자체가 증감이라 .neg/.pos가 색을 가져간다 (!important라 아래 색을 이긴다). */
+.summary-comment-list .sc-num{font-weight:600;color:#111827;white-space:nowrap}
+.summary-comment-list .sc-dir{font-weight:600}
+/* 시점 표기('7월', '1Q')는 무게를 바꾸지 않고 쪼개지는 것만 막는다 — 강조 축을 셋으로 늘리지 않는다. */
+.summary-comment-list .sc-t{white-space:nowrap}
+.summary-comment-list .sc-key{font-weight:400;color:#8b95a4}
+/* 상위 > 하위 > 상세의 세 단계는 그대로 살린다 — 수치를 모두 같은 먹으로 올리면
+   어디까지가 요약이고 어디부터가 근거인지 다시 뭉개진다. 단계마다 한 칸씩 낮춰 둔다. */
+.summary-comment-list li.summary-comment-sub .sc-num{color:#1f2937}
+.summary-comment-list li.summary-comment-detail .sc-num{color:#64748b}
+.summary-comment-list li.summary-comment-detail .sc-key{color:#b4bdc8}
 /* 표 우측에 세로로 붙는 형태 (Humax합계의 당월/당월누계 표 각각에 하나씩). */
 .summary-callout-side{margin-bottom:0}
 .summary-callout-side .summary-comment-list{grid-template-columns:1fr;gap:9px}
