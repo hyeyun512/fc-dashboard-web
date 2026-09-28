@@ -24,7 +24,12 @@ import type {
 } from "./types";
 
 const BUDGET_TABLE = "26년 예산(BP)";
-const PREFERRED_CATEGORY_ORDER = ["인건비", "지급수수료", "감가상각비", "기타", "광고선전비", "여비교통비"];
+/**
+ * 구분(category) 표기 순서 — 보고서에서 늘 이 차례로 읽는다 (2026-09-28 사용자 지시).
+ * 여기 없는 구분(연구·판관 등)은 뒤에 가나다순으로 붙고, '기타'는 마지막에 둔다.
+ * 구분별 표·도넛뿐 아니라 대계정 정렬(mainAccountOrder)도 이 차례를 따른다.
+ */
+const PREFERRED_CATEGORY_ORDER = ["인건비", "여비교통비", "지급수수료", "광고선전비", "감가상각비", "기타"];
 const PREFERRED_FEE_ORDER = ["29 지급수수료", "40 외주개발용역비", "41 인증대행료", "42 특허처리비"];
 const HQ_ORDER: Record<string, number> = { 본사: 0, 법인: 1 };
 const PREFERRED_HQ_DEPT_ORDER = ["1. 사업 그룹", "2. 개발 그룹", "3. SCM 부문", "4. Media그룹", "5. Staff부문"];
