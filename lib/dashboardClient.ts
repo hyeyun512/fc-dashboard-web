@@ -1460,9 +1460,12 @@ export function initDashboard(data: DashboardData): () => void {
           // li가 flex라, 조판으로 생긴 span을 그대로 두면 낱낱이 flex 아이템이 되어
           // 사이에 gap이 벌어지고 폭이 좁으면 글자가 세로로 쌓인다 — 한 겹으로 싸서 한 덩이로 흐르게 한다.
           const body = `<span class="sc-body">${typesetComment(raw)}</span>`;
-          if (level === "detail") return `<li class="summary-comment-detail">${body}</li>`;
-          if (level === "sub") return `<li class="summary-comment-sub"><span class="summary-comment-submark"></span>${body}</li>`;
-          return `<li><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;
+          // '(참고)'로 시작하는 줄은 그 달에 집행된 값이 아니라 곁에 두는 참고 사항이다(계약서상 잔금 등).
+          // 본문과 같은 무게로 두면 눈이 먼저 가므로, 수치 강조를 걷고 한 단계 흐리게 둔다.
+          const ref = /^\(\s*참고\s*\)/.test(raw) ? " summary-comment-ref" : "";
+          if (level === "detail") return `<li class="summary-comment-detail${ref}">${body}</li>`;
+          if (level === "sub") return `<li class="summary-comment-sub${ref}"><span class="summary-comment-submark"></span>${body}</li>`;
+          return `<li${ref ? ` class="${ref.trim()}"` : ""}><span class="summary-comment-dot" style="background:${SUMMARY_ACCENT}"></span>${body}</li>`;
         })
         .join("") +
       `</ul>`
