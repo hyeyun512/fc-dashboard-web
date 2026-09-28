@@ -469,7 +469,7 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
   "8월": {
     humax_total_month: [
       "예산 대비 실적 집행률: 합계 2,976백만(120%), 본사 1,825백만(95%), 법인 1,152백만(204%)",
-      "-법인 초과: HBR 지급수수료 703백만 집행 — 신용거래 수수료 658백만, 신규 대표자 선임 용역 수수료 45백만",
+      "-법인 초과: HBR 지급수수료 703백만 집행 — HBR Artur 세액공제 매각 중개수수료 650백만, HBR CTJ 법정 대표자 보수 54백만",
     ],
     humax_total_cum: [
       "예산 대비 실적 집행률: 합계 21,186백만(100%), 본사 14,922백만(94%), 법인 6,264백만(121%)",
