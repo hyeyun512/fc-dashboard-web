@@ -309,6 +309,7 @@ export const SUMMARY_TREND_GROUPS: Record<string, SummaryCommentGroup[]> = {
         "-STB License Fee/Nagra 4월 -84백만, 5월 +84백만 (선급비용 결산 조정 지연)",
         "1~5월 평균 476백만 대비 6월 60백만, 7월 45백만 초과 · 8월 66백만 미달",
         "-Charter B&M Legal fee 6월 72백만, 7월 55백만, 8월 79백만 집행 (누계 206백만)",
+        "-HUS 8월 의료보험료 환급 -52백만, 유급휴가 충당금 회수 -28백만, 급여 -26백만 (2Q 7명 → 3Q 5명)",
       ],
     },
     {
@@ -319,7 +320,7 @@ export const SUMMARY_TREND_GROUPS: Record<string, SummaryCommentGroup[]> = {
         "-3월, 5월: 주식보상비용 3월 34백만, 5월 216백만",
         "-7월: 합병 자문·평가 수수료 350백만 (KB증권, 이촌회계법인)",
         "-8월: HBR Artur 세액공제 매각 중개수수료 650백만, HBR CTJ 법정 대표자 보수 54백만, 홀딩스 합병 자문 수수료 131백만",
-        "(참고) 계약서상 잔금 : HBR Artur 세액공제 매각 중개수수료 6.7억, HBR CTJ 법정 대표자 성공보수 45백만",
+        "(참고) 계약서상 잔금 : HBR Artur 세액공제 매각 중개수수료 6.7억, HBR CTJ 법정 대표자 성공보수 45백만, 홀딩스 합병 자문 수수료 1억(KB증권, 합병기일 후)",
         "1~6월 평균 611백만 대비 7월 269백만, 8월 747백만 초과",
       ],
     },

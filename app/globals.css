@@ -545,8 +545,10 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .detail-trend-panel{padding:6px 10px}
   .detail-trend-hd{margin-bottom:4px}
   .detail-trend-wrap{height:150px}
-  /* '배부액 추이' 시트는 그래프가 주인공이라 인쇄에서도 한 페이지가 허락하는 만큼 키운다. */
-  .trend-panel-full .detail-trend-wrap{height:400px}
+  /* '배부액 추이' 시트는 그래프가 주인공이라 인쇄에서도 한 페이지가 허락하는 만큼 키운다.
+     다만 아래 문구 카드가 늘면 여기서 자리를 내줘야 한 페이지가 유지된다 — 8월에 STB 감소 원인과
+     계약서상 잔금이 붙으며 741px까지 가서 400 → 375px로 내렸다 (그만큼 여유가 생긴다). */
+  .trend-panel-full .detail-trend-wrap{height:375px}
   .detail-trend-title{font-size:11.5px}
   .summary-comment-list li.summary-comment-sub{font-size:9.5px;margin-top:-1px;padding-left:9px}
   .summary-comment-submark{width:5px;height:5px;border-width:1px;margin-top:4px}
