@@ -32,9 +32,13 @@ body{font-family:Arial,'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-s
 /* Summary 장을 보고 있을 때는 그 아래로 Humax합계 · EVCS사업부 · Humax합계_상세 세 장을 이어 붙여,
    탭을 짚지 않고 스크롤만으로 상세까지 내려보게 한다. 마크업을 복제하지 않고 원래 장을 그대로
    드러내는 방식이라 숫자도 차트도 한 벌만 존재한다. 이어 붙인 장은 가로줄로 끊어 경계를 보인다. */
+#tab-main{padding:0}
 #tab-main.active ~ #tab-sum-total,
 #tab-main.active ~ #tab-sum-evcs,
-#tab-main.active ~ #tab-sum-detail{display:block;border-top:0.5px solid #e2e8f0;padding-top:28px}
+#tab-main.active ~ #tab-sum-detail{display:block}
+/* 둘째·셋째 장만 가로줄로 끊는다 — 첫 장 위에는 끊을 것이 없다. */
+#tab-main.active ~ #tab-sum-evcs,
+#tab-main.active ~ #tab-sum-detail{border-top:0.5px solid #e2e8f0;padding-top:28px}
 .content.active{display:block}
 .sheet-hd{display:flex;align-items:center;gap:12px;margin:0 0 20px;padding-bottom:14px;border-bottom:1.5px solid #e2e8f0}
 .sheet-hd-bar{width:5px;height:26px;border-radius:3px;background:#2563eb;flex:none}
@@ -363,47 +367,8 @@ body{font-family:Arial,'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-s
 .sum-block-row .tbl-box{margin-bottom:0;width:max-content}
 .sum-block .summary-callout{margin-bottom:0}
 
-/* ---- Summary(사장님 보고용 1페이지) ----
-   네 질문을 그 순서대로 세운 장이다 — ① 얼마 썼나(카드 넷) → ② 어디가 틀어졌나(차이 표)
-   → ③ 흐름(추이 그래프) → ④ 왜(문구 한 상자). ②과 ③를 좌우로 붙여, 표의 한 줄과
-   그래프의 한 선이 같은 색으로 서로를 가리키게 한다. 왼쪽 칸 폭은 변수로 고정해
-   표 너비가 달라져도(달마다 자릿수가 는다) 세로선이 흔들리지 않게 한다. */
-#tab-main{--main-tbl:560px}
-.main-kpis{margin-bottom:14px}
-.main-mid{display:grid;grid-template-columns:minmax(0,var(--main-tbl)) minmax(0,1fr);
-  gap:14px;align-items:stretch;margin-bottom:14px}
-.main-mid > *{min-width:0}
-.main-mid .tbl-box{margin-bottom:0;display:flex;flex-direction:column}
-.main-mid .tbl-scroll{flex:1}
-/* 표가 제 글자폭만큼만 차지하면 오른쪽에 빈 띠가 남아 상자만 길어 보인다 — 칸 폭을 다 쓰게 한다.
-   빌더가 colgroup에 박아 둔 폭보다 칸이 좁아질 수 있으므로 열 폭도 여기서 다시 잡는다. */
-#tab-main .main-diff-tbl{width:100%}
-#tab-main .main-diff-tbl col{width:84px!important}
-#tab-main .main-diff-tbl col:first-child{width:124px!important}
-/* 항목 이름 앞의 색 점 = 오른쪽 추이 그래프의 선 색. 표의 한 줄과 그래프의 한 선을 눈으로 잇는다. */
-.main-item{display:flex;align-items:center;gap:8px}
-/* 이 표에서 눈이 가야 할 곳은 금액이 아니라 예산과의 거리다 — 누계 실적은 옅은 파랑으로 세우고,
-   차이 열은 왼쪽에 선을 그어 따로 떼어 둔다 (색은 .neg/.pos가 칠하므로 여기서 더 늘리지 않는다). */
-#tab-main .main-col-cum{background:#f4f8ff}
-#tab-main th.main-col-cum{background:#dbeafe;color:#1e3a8a}
-#tab-main .main-col-diff{border-left:2px solid #cbd5e1;font-weight:700}
-#tab-main th.main-col-diff{border-left:2px solid #cbd5e1}
-#tab-main .main-diff-tbl .tot .main-col-cum{background:#dbeafe}
 
-/* ③ 흐름 — 표와 같은 높이로 서고, 남는 높이는 모두 그래프가 받는다. */
-.main-trend{display:flex;flex-direction:column;padding:14px 18px}
-.main-trend-hd{display:flex;align-items:baseline;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:8px}
-.main-trend-title{font-size:13px;font-weight:700;color:#1a202c}
-.main-trend-hd .legend{margin-top:0;gap:10px}
-.main-trend-hd .leg{font-size:11px}
-.main-trend-wrap{position:relative;flex:1;min-height:170px}
-/* 캔버스를 흐름에서 빼 둔다 — 흐름에 있으면 제 너비로 칸을 밀어 키우고 그 폭에 맞춰 다시 커진다. */
-.main-trend-wrap > canvas{position:absolute;left:0;top:0}
-.main-trend-note{font-size:11px;color:#94a3b8;margin-top:7px}
 
-/* ④ 왜 — 상자는 하나, 폭은 전폭. 문구 한 줄이 접히지 않고 끝나야 줄 수가 달마다 흔들리지 않는다. */
-.main-why{margin-bottom:0}
-#tab-main .summary-comment-list{grid-template-columns:1fr}
 
 /* ---- 도넛(Summary① 배부 구성비) — 금액·비중은 표와 도넛에 있으므로 범례는 항목명만 ---- */
 .donut-box{display:flex;align-items:center;gap:16px;background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:12px 18px}
@@ -448,8 +413,6 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   /* 표(약 636px)와 추이 그래프(최소 420px)를 나란히 두면 화면을 넘긴다 — 좁은 화면에서는 위아래로 쌓는다. */
   .summary-row{grid-template-columns:1fr}
   /* Summary 1페이지도 같은 이유로 [차이 표 | 추이 그래프]를 풀어 세로로 쌓는다 (인쇄는 타지 않는다). */
-  .main-mid{grid-template-columns:1fr}
-  .main-kpis{grid-template-columns:repeat(2,1fr)}
   .detail-grid{grid-template-columns:1fr}
 }
 
@@ -457,9 +420,11 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
    글자 크기·색·테두리는 화면과 동일하게 두고(디자인 일치), 여백만 줄여 가로 한 페이지에 맞춘다. */
 @media print{
   @page{size:landscape;margin:8mm}
-  /* 화면에서 Summary 아래에 이어 붙여 둔 세 장은 인쇄에서는 접는다 — 사장님 지시대로 Summary는
-     한 장으로 나가야 하고, 그 세 장은 각자 탭에서 따로 뽑으면 된다. */
-  #tab-main.active ~ .content{display:none!important}
+  /* Summary를 인쇄하면 이어 붙인 세 장이 그대로 세 장으로 나간다 — 화면에서 스크롤로 보던 순서
+     그대로다. 가로줄로만 끊으면 한 장이 페이지 경계에서 잘리므로, 둘째·셋째 장은 새 페이지에서
+     시작하게 하고 화면용 구분선은 거둔다. */
+  #tab-main.active ~ #tab-sum-evcs,
+  #tab-main.active ~ #tab-sum-detail{break-before:page;border-top:0;padding-top:0}
   /* 브라우저 기본값은 배경색을 인쇄하지 않아 표 헤더/합계행 색이 사라진다 — 화면과 같게 강제로 인쇄한다. */
   *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important}
   /* Chart.js는 캔버스 크기를 inline style(px)로 잡는다. 인쇄 시점에는 리사이즈 콜백이 돌지 못해
@@ -619,51 +584,6 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .summary-comment-list li.summary-comment-detail.summary-comment-ref{font-size:8px;line-height:1.25}
   .detail-trend-note{margin-top:3px;padding-top:3px;font-size:8.5px;line-height:1.28}
   .detail-trend-note-item{margin-top:1px}
-  /* ---- Summary(1페이지) 인쇄 ----
-     한 페이지(1062 × 733px)에 네 덩이가 모두 들어와야 한다. 달마다 문구 줄 수가 달라지므로
-     높이가 문구에 흔들리지 않게, 위 세 덩이(카드·표·그래프)를 고정 높이로 못박고
-     문구 상자만 남는 자리에서 늘어나게 둔다. 문구는 전폭이라 한 줄이 잘 접히지 않는다. */
-  #tab-main{--main-tbl:548px}
-  #tab-main .sheet-hd{margin:0 0 9px;padding-bottom:5px}
-  #tab-main .sheet-title{font-size:15px}
-  #tab-main .sheet-eyebrow{font-size:9px}
-  .main-kpis{gap:10px;margin-bottom:10px}
-  .main-mid{gap:10px;margin-bottom:10px}
-  /* ① 카드 넷 — 위의 부록용 .kstack 축소 규칙보다 한 단계 크게 둔다 (이 장은 이 수가 헤드라인이다). */
-  #tab-main .kstack{padding:7px 12px 7px 14px}
-  #tab-main .kstack-hd{font-size:9px;padding-bottom:4px}
-  #tab-main .kstack-row{padding:3px 0}
-  #tab-main .kstack-label{font-size:9.5px}
-  #tab-main .kstack-note{font-size:8px}
-  #tab-main .kstack-value{font-size:14px;line-height:1.05}
-  #tab-main .kstack-value .kunit{font-size:8.5px}
-  #tab-main .kstack-rate{font-size:17px;line-height:1}
-  /* ② 차이 표 — 왼쪽 548px = 첫 열 124 + 데이터 5열 × 84 + 여백. */
-  #tab-main .tbl-box{margin-bottom:0!important}
-  #tab-main .tbl-hd{padding:5px 12px;font-size:11.5px}
-  #tab-main .tbl-hd .sub{font-size:9.5px}
-  #tab-main .pl-tbl th{padding:3px 8px!important;font-size:9.5px!important}
-  #tab-main .pl-tbl td{padding:6px 8px!important;font-size:13px!important;line-height:1.25}
-  #tab-main .pl-tbl .kbadge{font-size:9px;padding:1px 6px}
-  #tab-main .main-item{gap:7px}
-  #tab-main .dleg-dot{width:8px;height:8px}
-  /* ③ 추이 — 표와 아래선을 맞추고 남는 높이를 그래프가 받는다. */
-  #tab-main .main-trend{padding:8px 12px}
-  #tab-main .main-trend-hd{margin-bottom:5px}
-  #tab-main .main-trend-title{font-size:11.5px}
-  #tab-main .main-trend-hd .leg{font-size:9.5px}
-  #tab-main .main-trend-hd .legend{gap:8px}
-  #tab-main .main-trend-wrap{min-height:0}
-  #tab-main .main-trend-note{font-size:8.5px;margin-top:4px}
-  /* ④ 문구 — 전폭 한 상자. */
-  #tab-main .summary-callout{padding:8px 14px!important;margin-bottom:0!important}
-  #tab-main .summary-callout-title{font-size:9.5px;letter-spacing:1px;margin-bottom:5px}
-  #tab-main .summary-comment-list{font-size:11.5px;line-height:1.4;gap:3px 0}
-  #tab-main .summary-comment-list li{gap:7px}
-  #tab-main .summary-comment-dot{width:4.5px;height:4.5px;margin-top:6px}
-  #tab-main .summary-comment-list li.summary-cat{font-size:9.5px;margin-top:5px}
-  #tab-main .summary-comment-list li.summary-comment-sub{font-size:10.5px;margin-top:0;padding-left:10px}
-  #tab-main .summary-comment-list li.summary-comment-detail{font-size:10px;margin-top:-1px;padding-left:19px}
 
   /* 슬라이드 이동 줄은 화면 조작용이라 인쇄물에는 남기지 않는다.
      아래 '슬라이드 쇼' 절의 .slidenav{display:flex}가 이 블록보다 뒤에 있어 특이성이 같으면

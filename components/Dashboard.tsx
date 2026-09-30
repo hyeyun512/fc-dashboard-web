@@ -148,46 +148,12 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <span className="hint">← → 키로도 이동</span>
       </div>
 
-      {/* ===================== Summary — 사장님 보고용 1페이지 =====================
-          뒤의 장들을 한 장에 옮겨 놓는 것이 아니라, 사장님이 이 장에서 답을 얻어야 하는
-          네 질문을 그 순서대로 세운다 — ① 얼마 썼나 → ② 어디가 틀어졌나 → ③ 흐름은 어떤가
-          → ④ 왜. ②가 이 장의 중심이고, ②·③이 같은 여섯 항목을 같은 색으로 말하므로
-          표의 한 줄과 그래프의 한 선이 서로를 가리킨다.
-          내용은 dashboardClient의 renderMain이 채운다 (숫자는 모두 배부판에서 그대로 꺼내 쓴다). */}
-      <div id="tab-main" className="content active">
-        {/* 다른 시트와 달리 머리글을 두지 않는다 — 탭이 이미 'Summary'라고 말하고 아래 문구 상자도
-            'SUMMARY'라, 맨 위에 한 번 더 적으면 같은 말이 세 번이다 (2026-09-30 지시).
-            보고 월은 상단 바('기준월: 8월')와 KPI 카드 머리('8월 (당월)', '1~8월 누계')에 이미 있다. */}
-
-        {/* ① 얼마 썼나 — 큰 수 넷을 맨 위 한 줄에. 표를 읽기 전에 규모가 먼저 들어와야 한다. */}
-        <div className="kpi-row main-kpis" id="mainKpis" />
-
-        {/* ② 어디가 틀어졌나 (왼쪽, 이 장의 중심) + ③ 흐름 (오른쪽) */}
-        <div className="main-mid">
-          <div className="tbl-box">
-            <div className="tbl-hd">
-              <span id="mainDiffTitle" /> <span className="sub" id="mainDiffSub" />
-            </div>
-            <div className="tbl-scroll">
-              <div id="mainDiffTable" />
-            </div>
-          </div>
-          <div className="panel main-trend">
-            <div className="main-trend-hd">
-              <div className="main-trend-title" id="mainTrendTitle" />
-              <span className="legend" id="mainTrendLegend" />
-            </div>
-            <div className="main-trend-wrap">
-              <canvas id="mainAllocTrend" />
-            </div>
-            <div className="main-trend-note" id="mainTrendNote" />
-          </div>
-        </div>
-
-        {/* ④ 왜 — 당월·누계·EVCS 문구를 상자 하나로 잇는다. 상자를 셋으로 나누면 원본 장이
-            셋이라는 사실만 드러난다 (기간은 상자 안의 머리표로만 남긴다). */}
-        <div className="summary-callout main-why" id="mainComment" style={{ borderLeftColor: "#1d4ed8" }} />
-      </div>
+      {/* ===================== Summary — 세 장을 한 시트에서 이어 본다 =====================
+          이 장은 제 내용을 갖지 않는다. Humax합계 · EVCS사업부 · Humax합계_상세 세 장을 그대로
+          이어 붙여, 탭을 짚지 않고 스크롤만으로 내려보게 하는 자리다 (2026-09-30 지시).
+          붙이는 일은 globals.css의 '#tab-main.active ~ …' 규칙이 하므로 여기는 비워 둔다 —
+          마크업을 복제하지 않는 덕에 숫자도 차트도 한 벌만 존재한다. */}
+      <div id="tab-main" className="content active" />
 
       {/* ===================== SUMMARY① Humax합계 ===================== */}
       <div id="tab-sum-total" className="content">

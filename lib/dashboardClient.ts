@@ -1551,144 +1551,8 @@ export function initDashboard(data: DashboardData): () => void {
     );
   }
 
-  // ================= Summary — 사장님 보고용 1페이지 =================
-  /**
-   * 이 장의 중심 표. 배부 항목 여섯 개를 한 줄씩 놓고 "누계 실적이 예산 대비 얼마나 틀어졌는가"를 적는다.
-   *
-   * 실적만 늘어놓은 표는 "EVCS(국내) 2,575"가 많은 건지 적은 건지 말해 주지 않는다. 읽는 사람이
-   * 알아야 하는 것은 금액이 아니라 예산과의 거리이므로, 차이(±)와 집행률을 같은 줄에 붙인다.
-   * 당월 열을 맨 앞에 하나 두어 "이번 달에도 그 방향인가"까지 같은 줄에서 확인하게 한다
-   * (그래서 이 표 하나가 예전의 당월 표·누계 표·EVCS 표 셋을 대신한다).
-   *
-   * 값은 모두 배부판(allocationBoard)의 Total 행에서 그대로 꺼내고, 차이는 다른 장이 쓰는
-   * diffOf()로 뺀다 — 이 장만의 계산식을 따로 두지 않는다.
-   */
-  function allocBudgetDiffTable(month: MonthBlock): string {
-    const pick = (rows: AllocationRow[]) => rows.find((r) => r.label === "Total");
-    const mA = pick(month.allocationBoard.actual);
-    const cA = pick(month.cumulative.allocationBoard.actual);
-    const cB = pick(month.cumulative.allocationBoard.budget);
-    if (!mA || !cA || !cB) return "";
-    const d = diffOf(cA, cB);
-    // (A+B) 합계 — Summary 표들이 쓰는 "합계"와 같은 정의다 (Shared(C)는 이 장의 범위가 아니다).
-    const ab = (r: AllocValues13 & { humaxTotal: number }) => r.humaxTotal + r.building;
-
-    const line = (label: string, color: string, mv: number, av: number, bv: number, dv: number, cls = "") =>
-      `<tr class="${cls}">` +
-      `<td><span class="main-item"><span class="dleg-dot" style="background:${color}"></span>${label}</span></td>` +
-      `<td>${money(mv)}</td><td class="main-col-cum">${money(av)}</td><td class="pct-aux">${money(bv)}</td>` +
-      // diffCls는 ' class="neg"'를 통째로 돌려주므로, 여기서는 class를 한 번만 쓰도록 안쪽 이름만 뽑아 붙인다
-      // (class 속성을 두 번 적으면 뒤엣것이 무시되어 초과=빨강/미집행=파랑이 사라진다).
-      `<td class="main-col-diff ${dv > 0 ? "neg" : dv < 0 ? "pos" : ""}">${money(dv, { sign: true })}</td>` +
-      `<td class="badge-cell">${rateBadgeCell(rateOf(av, bv))}</td></tr>`;
-
-    const body =
-      ALLOC_DONUT_FIELDS.map((f, i) =>
-        line(ALLOC_DONUT_LABELS[i], ALLOC_DONUT_COLORS[i], mA[f], cA[f], cB[f], d[f])
-      ).join("") + line("합계", "transparent", ab(mA), ab(cA), ab(cB), ab(d), "tot");
-
-    return (
-      `<table class="pl-tbl sum-tbl main-diff-tbl">` +
-      colgroupHtml(132, 88, 5) +
-      `<thead>` +
-      `<tr><th rowspan="2">배부 항목</th><th rowspan="2">${currentMonth}<br>실적</th>` +
-      `<th colspan="4" class="grp-a">${months[0]}~${currentMonth} 누계</th></tr>` +
-      `<tr><th class="main-col-cum">실적</th><th>예산</th><th class="main-col-diff">차이</th><th>집행률</th></tr>` +
-      `</thead><tbody>${body}</tbody></table>`
-    );
-  }
-
-  /**
-   * 문구 상자에 이어 붙일 문구와 그 기간 머리말.
-   * EVCS 문구(key: "evcs")는 여기 넣지 않는다 — EVCS 국내·해외의 실적·예산·차이·집행률은
-   * 위 차이 표의 두 줄이 이미 말하고, 월별 흐름은 오른쪽 그래프의 두 선이 말한다.
-   * 분기별 국내/해외 비중까지 이 장에 끌어오면 한 페이지를 넘기고, 'EVCS사업부' 장에 그대로 있다.
-   */
-  const MAIN_COMMENT_GROUPS: { key: SummaryCommentKey; label: string }[] = [
-    { key: "humax_total_month", label: "당월" },
-    { key: "humax_total_cum", label: "누계" },
-  ];
-
-  /**
-   * Summary — 사장님 보고용 1페이지.
-   *
-   * 뒤의 장들을 옮겨 놓는 대신, 사장님이 이 장에서 답을 얻어야 하는 네 질문을 그 순서대로 세운다.
-   *   ① 얼마 썼나      — 당월·누계·본사·법인 네 장의 카드 (큰 수가 맨 위)
-   *   ② 어디가 틀어졌나 — 배부 항목별 예산 대비 차이 표 (이 장의 중심)
-   *   ③ 흐름은 어떤가   — 같은 여섯 항목의 월별 추이 (한 달만 보면 튄 건지 추세인지 모른다)
-   *   ④ 왜             — 원인 문구 한 상자
-   * ②과 ③는 같은 여섯 항목을 같은 색으로 말하므로, 표의 한 줄과 그래프의 한 선이 서로를 가리킨다.
-   *
-   * 숫자는 모두 배부판·엑셀 문구에서 그대로 꺼내 쓴다 — 이 장만의 계산식은 없다.
-   */
-  function renderMain() {
-    const m = data.byMonth[currentMonth];
-    const cum = m.cumulative;
-    const cumLabel = `${months[0]}~${currentMonth}`;
-
-    // ① 얼마 썼나 — 큰 수 넷. 합계는 Summary 표들과 같은 (A+B) 정의를 쓴다.
-    const rowOf = (rows: AllocationRow[], label: string) => rows.find((r) => r.label === label);
-    const ab = (r?: AllocationRow) => (r ? r.humaxTotal + r.building : 0);
-    const card = (accent: string, head: string, a?: AllocationRow, b?: AllocationRow) =>
-      kpiStackHtml(accent, ab(a), ab(b), rateOf(ab(a), ab(b)), "", head);
-    setHtml(
-      "mainKpis",
-      card("#1d4ed8", `${currentMonth} (당월)`, rowOf(m.allocationBoard.actual, "Total"), rowOf(m.allocationBoard.budget, "Total")) +
-        card("#1d4ed8", `${cumLabel} 누계`, rowOf(cum.allocationBoard.actual, "Total"), rowOf(cum.allocationBoard.budget, "Total")) +
-        card("#94a3b8", `본사 (${cumLabel} 누계)`, rowOf(cum.allocationBoard.actual, "본사(HKR)"), rowOf(cum.allocationBoard.budget, "본사(HKR)")) +
-        card("#94a3b8", `법인 (${cumLabel} 누계)`, rowOf(cum.allocationBoard.actual, "법인"), rowOf(cum.allocationBoard.budget, "법인"))
-    );
-
-    // ② 어디가 틀어졌나 — 이 장의 중심.
-    setText("mainDiffTitle", "예산 대비 집행 현황");
-    setText("mainDiffSub", `백만원 · 차이 = 누계 실적 − 누계 예산`);
-    setHtml("mainDiffTable", allocBudgetDiffTable(m));
-
-    // ③ 흐름 — 표와 같은 여섯 항목을 같은 색으로. 한 달 값이 튄 것인지 추세인지 여기서 갈린다.
-    setText("mainTrendTitle", "월별 배부액 추이");
-    setHtml(
-      "mainTrendLegend",
-      ALLOC_DONUT_LABELS.map(
-        (l, i) => `<span class="leg"><span class="leg-line" style="border-color:${ALLOC_DONUT_COLORS[i]}"></span>${l}</span>`
-      ).join("")
-    );
-    // 이 그래프는 원장 그대로다 — 기표 시기 왜곡을 되돌린 점선은 '배부액 추이' 장에만 둔다
-    // (요약 장에서 보정선까지 겹치면 그림이 읽히지 않는다). 그 사실만 한 줄로 밝혀 둔다.
-    setText("mainTrendNote", "* 원장 기준 · 기표 시기 보정은 '배부액 추이' 장 참조");
-    const totalOf = (mo: string) => data.byMonth[mo].allocationBoard.actual.find((r) => r.label === "Total");
-    // 그래프는 보고 월까지만 그린다 — 이 장의 나머지가 모두 "1월~4월"을 말하는데 그림만 8월까지
-    // 뻗어 있으면 같은 장 안에서 기간이 어긋난다 (지난 달을 열어 볼 때 실제로 그랬다).
-    const curIdx = months.indexOf(currentMonth);
-    const trendMonths = curIdx < 0 ? months : months.slice(0, curIdx + 1);
-    queueChart("main", "mainAllocTrend", () =>
-      lineChartMulti(
-        "mainAllocTrend",
-        trendMonths,
-        ALLOC_DONUT_FIELDS.map((f, i) => ({
-          label: ALLOC_DONUT_LABELS[i],
-          data: trendMonths.map((mo) => totalOf(mo)?.[f] ?? 0),
-          borderColor: ALLOC_DONUT_COLORS[i],
-          backgroundColor: ALLOC_DONUT_COLORS[i],
-          pointBackgroundColor: ALLOC_DONUT_COLORS[i],
-          tension: 0.3,
-          borderWidth: 1.8,
-          // 1월 보고처럼 점이 하나뿐인 달에도 값이 보이도록 점을 아주 작게 두지는 않는다.
-          pointRadius: 2.5,
-          pointBorderWidth: 1,
-        }))
-      )
-    );
-
-    // ④ 왜 — 세 벌의 문구를 상자 하나로 잇는다. 상자를 셋으로 나누면 원본 장이 셋이라는 사실만
-    //    드러나고, 읽는 사람은 같은 형식의 첫 줄을 세 번 다시 읽게 된다. 기간은 머리표로만 남긴다.
-    const lines = MAIN_COMMENT_GROUPS.flatMap(({ key, label }) => {
-      const ls = SUMMARY_COMMENTS[currentMonth]?.[key];
-      return ls && ls.length ? [`[${label}]`, ...ls] : [];
-    });
-    // 상자 머리의 'SUMMARY'는 걷는다 — 이 장의 이름이 이미 Summary라 같은 말을 두 번 하게 된다
-    // (2026-09-30 지시). 안의 '당월'/'누계' 머리표만으로 어느 기간 이야기인지 충분히 드러난다.
-    setHtml("mainComment", lines.length ? commentListHtml(lines) : "");
-  }
+  // Summary 장은 제 내용을 갖지 않는다 — Humax합계 · EVCS사업부 · Humax합계_상세 세 장을
+  // 그대로 이어 붙여 한 시트에서 스크롤로 내려보는 자리다. 붙이는 일은 globals.css가 한다.
 
   function renderSumTotal() {
     const m = data.byMonth[currentMonth];
@@ -1944,7 +1808,6 @@ export function initDashboard(data: DashboardData): () => void {
 
   function renderAll() {
     setText("topbarMeta", `단위: 백만원 · 기준월: ${currentMonth} · 보기: ${currentMode === "month" ? "당월" : "누계(YTD)"}`);
-    renderMain();
     renderSumTotal();
     renderSumEvcs();
     renderSumDetail();
