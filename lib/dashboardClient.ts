@@ -1472,10 +1472,17 @@ export function initDashboard(data: DashboardData): () => void {
       `</ul>`
     );
   }
-  /** Summary①·② 박스. */
-  function renderSummaryBox(elId: string, key: SummaryCommentKey) {
+  /**
+   * Summary①·② 박스.
+   * scope를 주면 제목이 "Summary · 당월"처럼 범위까지 말한다 — 한 장에 Summary 상자가 여럿 있는
+   * 1페이지 시트에서 세 상자가 모두 "Summary"라고만 적혀 있으면 어느 표의 이야기인지 흐려진다.
+   */
+  function renderSummaryBox(elId: string, key: SummaryCommentKey, scope?: string) {
     const lines = SUMMARY_COMMENTS[currentMonth]?.[key];
-    setHtml(elId, lines && lines.length ? summaryTitleHtml + commentListHtml(lines) : "");
+    const title = scope
+      ? `<div class="summary-callout-title" style="color:${SUMMARY_ACCENT}">Summary<span class="summary-callout-scope">${scope}</span></div>`
+      : summaryTitleHtml;
+    setHtml(elId, lines && lines.length ? title + commentListHtml(lines) : "");
   }
   /** 배부 항목 이름 → 추이 그래프에서 그 항목이 쓰는 선 색. 상자 색을 선 색과 맞춰 둘을 눈으로 잇는다. */
   const SERIES_COLOR_BY_LABEL: Record<string, string> = Object.fromEntries(
@@ -1511,24 +1518,62 @@ export function initDashboard(data: DashboardData): () => void {
   }
 
   /**
-   * MAIN — 앞의 세 장(Humax합계 / EVCS사업부 / Humax합계_상세)에서 먼저 읽히는 것만 모아
-   * 인쇄 한 페이지에 담는다. 표·문구는 각 장이 쓰는 것을 그대로 불러 쓰므로, 원본 장을 고치면
-   * 이 장도 같이 바뀐다 (숫자가 두 벌로 갈라지지 않게 하려는 것이다).
+   * Summary — 사장님 보고용 1페이지. 뒤의 세 장(Humax합계 / EVCS사업부 / Humax합계_상세)에서
+   * 먼저 읽히는 것만 세 띠로 모은다: 당월 → 누계(+본사 구분별) → EVCS.
+   *
+   * 표·문구는 각 장이 쓰는 빌더를 그대로 불러 쓴다 — 원본 장을 고치면 이 장도 같이 바뀌고,
+   * 숫자가 두 벌로 갈라지지 않는다. 이 함수가 하는 일은 "어느 행을 보여줄지" 고르는 것뿐이다.
+   *
+   * 뺀 것: 법인별(HUS~HSZ) 행과 항목별 상세 문구(SUMMARY_DETAIL_GROUPS). 둘 다 분량이 커서
+   * 넣으면 인쇄 한 페이지(733px)를 넘기고, 바로 뒤 'Humax합계_상세' 장에 그대로 남아 있다.
+   * 법인의 내부 구성은 당월 문구가 원인 법인을 직접 짚어 준다(예: 8월 HBR 지급수수료).
    */
   function renderMain() {
     const m = data.byMonth[currentMonth];
     const cum = m.cumulative;
+
+    // 시트 제목이 "Summary"라 eyebrow에 "Summary"를 쓸 수 없다 — 무엇을/언제 보는 장인지 적는다.
+    setText("mainEyebrow", `고정비 실적 · ${currentMonth}`);
+
+    // ① 당월 — 배부 항목별 본사/법인/합계.
     setText("mainMonthTitle", `${currentMonth} 실적`);
     setText("mainMonthSub", "백만원");
+    setHtml("mainMonthTable", allocTotalTable(m.allocationBoard.actual));
+    renderSummaryBox("mainMonthComment", "humax_total_month", "당월");
+
+    // ② 누계 — Summary③의 표를 같은 빌더로 부르되, 본사 구분별(인건비~기타)까지만 펼친다.
+    //    법인별 행(10행)은 여기서 빼고 뒤 장에 맡긴다 — 한 페이지에 담기지 않는다.
     setText("mainCumTitle", `${currentMonth} 누계 실적`);
     setText("mainCumSub", `${months[0]}~${currentMonth} · 백만원`);
-    setHtml("mainMonthTable", allocTotalTable(m.allocationBoard.actual));
-    setHtml("mainCumTable", allocTotalTable(cum.allocationBoard.actual));
-    renderSummaryBox("mainCumComment", "humax_total_cum");
+    const cumBoard = cum.allocationBoard.actual;
+    const hq = cumBoard.find((r) => r.label === "본사(HKR)");
+    const corp = cumBoard.find((r) => r.label === "법인" && r.level === 0);
+    const total = cumBoard.find((r) => r.label === "Total");
+    if (hq && corp && total) {
+      setHtml(
+        "mainCumTable",
+        sumDetailTable([
+          { label: "본사", alloc: hq, bold: true },
+          ...cum.hqCategoryAlloc.map((c) => ({ label: c.category, alloc: c, indent: true })),
+          { label: "법인", alloc: corp, bold: true },
+          { label: "합계", alloc: total, bold: true },
+        ])
+      );
+    }
+    renderSummaryBox("mainCumComment", "humax_total_cum", "누계");
 
+    // 누계 배부 구성비 — 합계 행을 비중으로 한 번 더 읽는다("고정비의 몇 %가 어디로 가나").
+    // 가운데 숫자가 표의 합계와 같은 값이라 표와 그림이 서로를 검산해 준다.
+    setHtml("mainAllocDonutLegend", donutLegendHtml(ALLOC_DONUT_LABELS));
+    queueChart("main", "mainAllocDonut", () =>
+      allocDonut("mainAllocDonut", ALLOC_DONUT_LABELS, allocDonutValues(cumBoard))
+    );
+
+    // ③ EVCS — 위 두 표에 없는 값(연간 예산 · 연간 집행률)이 이 표에만 있다.
+    setText("mainEvcsTitle", "EVCS 국내 · 해외 배부 현황");
     setText("mainEvcsSub", "백만원 · 연간 집행률 = 누계 실적 ÷ 연간 예산");
     setHtml("mainEvcsTable", evcsSplitTableBody(m.evcs, cum.evcs));
-    renderSummaryBox("mainEvcsComment", "evcs");
+    renderSummaryBox("mainEvcsComment", "evcs", "EVCS");
   }
 
   function renderSumTotal() {

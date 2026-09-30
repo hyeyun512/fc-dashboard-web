@@ -95,9 +95,10 @@ export default function Dashboard({ data }: { data: DashboardData }) {
 
       <div className="tab-bar">
         {/* 보고 자리에서 먼저 펼치는 한 장 — Humax합계·EVCS사업부·상세 세 장의 핵심만 모아
-            인쇄 한 페이지에 담는다 (2026-09-30 사장님 지시). 뒤의 세 장은 그대로 남겨 둔다. */}
+            인쇄 한 페이지에 담는다 (2026-09-30 사장님 지시). 뒤의 세 장은 그대로 남겨 둔다.
+            내부 식별자는 'main'으로 남기고 보이는 이름만 "Summary"로 둔다. */}
         <div className="tab tab-summary-lv active" data-tab="main">
-          메인
+          Summary
         </div>
         <div className="tab tab-summary-lv" data-tab="sum-total">
           Humax합계
@@ -147,20 +148,25 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <span className="hint">← → 키로도 이동</span>
       </div>
 
-      {/* ===================== MAIN — 1페이지 요약 =====================
-          Summary①~③에서 사장님이 먼저 보시는 것만 남긴다 — 당월·누계 전사 실적, EVCS 국내/해외,
-          그리고 그 둘을 설명하는 코멘트. 도넛·법인별 상세·구분별 내역은 뒤의 세 장에 그대로 있다.
-          표 두 개를 나란히 두는 이유는 세로로 쌓으면 아래 EVCS와 코멘트가 한 페이지를 넘기 때문이다. */}
+      {/* ===================== Summary — 사장님 보고용 1페이지 =====================
+          읽는 사람이 한 명(사장님)이고, 이 한 장으로 "이번 달 고정비가 어떻게 돌아갔는지"를
+          30초 안에 읽어야 한다. 그래서 세 개의 띠로만 나눈다 — 당월 / 누계 / EVCS.
+          띠마다 왼쪽은 숫자(표), 오른쪽은 그 숫자를 읽는 글(Summary 문구)이다. 눈이 좌→우로
+          한 번 움직이면 "얼마"와 "왜"가 한 쌍으로 들어오고, 아래로 내려가면 기간이 넓어진다.
+          표·문구는 뒤의 장들이 쓰는 빌더를 그대로 불러 쓰므로 숫자가 두 벌로 갈라지지 않는다. */}
       <div id="tab-main" className="content active">
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
-            <div className="sheet-eyebrow">Summary</div>
-            <div className="sheet-title">메인</div>
+            {/* 이 시트의 제목이 "Summary"라 다른 시트처럼 eyebrow에 "Summary"를 둘 수 없다 —
+                대신 무엇을/언제 보는 장인지를 적는다 (renderMain이 보고 월을 넣는다). */}
+            <div className="sheet-eyebrow" id="mainEyebrow" />
+            <div className="sheet-title">Summary</div>
           </div>
         </div>
 
-        <div className="main-row">
+        {/* ① 당월 — "이번 달 얼마 썼나"가 첫 줄에 와야 한다. 배부 항목별 3행(본사/법인/합계). */}
+        <div className="main-band">
           <div className="tbl-box">
             <div className="tbl-hd">
               <span id="mainMonthTitle" /> <span className="sub" id="mainMonthSub" />
@@ -169,6 +175,13 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               <div id="mainMonthTable" />
             </div>
           </div>
+          <SummaryCommentBox id="mainMonthComment" accent="#1d4ed8" variant="side" />
+        </div>
+
+        {/* ② 누계 — 같은 8열 표에 본사를 구분별(인건비~기타)로 펼친다. Summary③의 표를 같은
+            빌더로 부르되 법인별 행은 빼서(뒤 장에 그대로 있다) 한 페이지 안에 들어오게 했다.
+            오른쪽은 누계 문구 + 배부 구성비 도넛 — 표의 합계 행을 비중으로 한 번 더 읽는다. */}
+        <div className="main-band">
           <div className="tbl-box">
             <div className="tbl-hd">
               <span id="mainCumTitle" /> <span className="sub" id="mainCumSub" />
@@ -177,20 +190,28 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               <div id="mainCumTable" />
             </div>
           </div>
+          <div className="main-side">
+            <SummaryCommentBox id="mainCumComment" accent="#1d4ed8" variant="side" />
+            <div className="donut-box">
+              <div className="donut-wrap">
+                <canvas id="mainAllocDonut" />
+              </div>
+              <ul className="donut-legend" id="mainAllocDonutLegend" />
+            </div>
+          </div>
         </div>
 
-        <SummaryCommentBox id="mainCumComment" accent="#1d4ed8" />
-
-        <div className="main-row main-row-bottom">
-          <div className="main-evcs">
-            <div className="section-lead" style={{ marginTop: 0 }}>
-              EVCS 국내 · 해외 배부 현황 <span className="sub" id="mainEvcsSub" />
+        {/* ③ EVCS — 주력사업이라 한 장에 남긴다. 위 표에 없는 값(연간 예산·연간 집행률)이 여기 있다. */}
+        <div className="main-band">
+          <div className="tbl-box">
+            <div className="tbl-hd">
+              <span id="mainEvcsTitle" /> <span className="sub" id="mainEvcsSub" />
             </div>
-            <div className="tbl-box" style={{ marginBottom: 0 }}>
+            <div className="tbl-scroll">
               <div id="mainEvcsTable" />
             </div>
           </div>
-          <SummaryCommentBox id="mainEvcsComment" accent="#1d4ed8" />
+          <SummaryCommentBox id="mainEvcsComment" accent="#1d4ed8" variant="side" />
         </div>
       </div>
 

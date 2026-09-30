@@ -357,18 +357,40 @@ body{font-family:Arial,'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-s
 .sum-block-row .tbl-box{margin-bottom:0;width:max-content}
 .sum-block .summary-callout{margin-bottom:0}
 
-/* ---- MAIN(1페이지 요약) ----
-   당월·누계 표는 열이 여덟이라 인쇄 폭(1062px)을 반으로 나누면 끝의 '건물' 열이 잘린다.
-   그래서 위 두 표는 폭을 다 쓰고 세로로 쌓고, 아랫줄만 EVCS 표(필요한 만큼)와 코멘트(남는 만큼)로 나눈다. */
-.main-row{display:grid;grid-template-columns:1fr;gap:12px;align-items:start;margin-bottom:12px}
-.main-row > *{min-width:0}
-.main-row .tbl-box{margin-bottom:0}
-/* 표가 제 글자폭만큼만 차지하면 오른쪽에 빈 띠가 남아 상자만 길어 보인다 — 폭을 다 쓰게 한다. */
-#tab-main .main-row > .tbl-box .pl-tbl{width:100%}
-.main-row-bottom{grid-template-columns:auto 1fr;align-items:stretch;margin-bottom:0}
-.main-evcs{display:flex;flex-direction:column;min-width:0}
-.main-evcs .tbl-box{flex:1}
-.main-row-bottom .summary-callout{margin-bottom:0}
+/* ---- Summary(사장님 보고용 1페이지) ----
+   세 개의 띠로만 세운다 — 당월 / 누계 / EVCS. 띠마다 [왼쪽 = 숫자 표] [오른쪽 = 그 표를 읽는 글]이라,
+   눈이 좌→우로 한 번 움직이면 "얼마"와 "왜"가 한 쌍으로 들어오고 아래로 내려가면 기간이 넓어진다.
+   왼쪽 칸 폭을 변수로 고정해 세 띠의 세로선이 한 줄로 맞는다 (표마다 제 글자폭을 쓰면 선이 어긋난다).
+   오른쪽 상자는 stretch로 띠 높이를 채워, 각 띠의 아래선이 좌우 같은 자리에서 끝난다. */
+#tab-main{--main-tbl:700px}
+.main-band{display:grid;grid-template-columns:minmax(0,var(--main-tbl)) minmax(0,1fr);
+  gap:14px;align-items:stretch;margin-bottom:14px}
+.main-band:last-child{margin-bottom:0}
+.main-band > *{min-width:0}
+.main-band .tbl-box{margin-bottom:0;display:flex;flex-direction:column}
+.main-band .tbl-scroll{flex:1}
+.main-band .summary-callout{margin-bottom:0}
+/* 표가 제 글자폭만큼만 차지하면 오른쪽에 빈 띠가 남아 상자만 길어 보인다 — 칸 폭을 다 쓰게 한다.
+   다만 8열 표는 빌더가 colgroup에 박아 둔 폭(132+98×7=818px)이 이 칸보다 넓어, 그대로 두면
+   끝의 'HUMAX(공통)·건물' 열이 상자 밖으로 밀려 잘린다 — 열 폭을 칸에 맞춰 다시 잡는다
+   (112 + 82×7 = 686px). 머리글 중 가장 넓은 'HUMAX(공통)'이 들어갈 만큼은 남겨 둔다. */
+#tab-main .sum-tbl{width:100%}
+#tab-main .sum-tbl.alloc-tbl col{width:82px!important}
+#tab-main .sum-tbl.alloc-tbl col:first-child{width:112px!important}
+#tab-main .pl-tbl th{padding:8px 8px;font-size:10.5px}
+#tab-main .pl-tbl td{padding:8px 10px}
+#tab-main .pl-tbl .fee-sub td:first-child{padding-left:22px}
+/* 문구는 한 열로만 흘린다 — 칸 폭이 달라져도 줄 수가 변하지 않아 인쇄 높이를 예측할 수 있다. */
+#tab-main .summary-comment-list{grid-template-columns:1fr}
+/* 상자가 셋이라 모두 "Summary"라고만 적히면 어느 표의 이야기인지 흐려진다 — 범위를 덧붙인다.
+   덧붙이는 말은 한글이라 제목의 자간(1.2px)을 물려받으면 글자가 흩어진다 — 자간만 되돌린다. */
+.summary-callout-scope{letter-spacing:0;color:#94a3b8;margin-left:7px;
+  padding-left:7px;border-left:0.5px solid #d7dbe2}
+/* 누계 띠의 오른쪽: 문구(위) + 배부 구성비 도넛(아래). 문구가 짧은 달에는 도넛이 남는 높이를 받아
+   왼쪽 표와 아래선을 맞춘다. */
+.main-side{display:flex;flex-direction:column;gap:12px;min-width:0}
+.main-side .summary-callout{margin-bottom:0}
+.main-side .donut-box{flex:1;justify-content:center}
 
 /* ---- 도넛(Summary① 배부 구성비) — 금액·비중은 표와 도넛에 있으므로 범례는 항목명만 ---- */
 .donut-box{display:flex;align-items:center;gap:16px;background:#fff;border:0.5px solid #e2e8f0;border-radius:12px;padding:12px 18px}
@@ -412,6 +434,8 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .summary-comment-list{grid-template-columns:1fr}
   /* 표(약 636px)와 추이 그래프(최소 420px)를 나란히 두면 화면을 넘긴다 — 좁은 화면에서는 위아래로 쌓는다. */
   .summary-row{grid-template-columns:1fr}
+  /* Summary 1페이지도 같은 이유로 [표 | 문구]를 풀어 세로로 쌓는다 (인쇄는 이 규칙을 타지 않는다). */
+  .main-band{grid-template-columns:1fr}
   .detail-grid{grid-template-columns:1fr}
 }
 
@@ -578,6 +602,48 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .summary-comment-list li.summary-comment-detail.summary-comment-ref{font-size:8px;line-height:1.25}
   .detail-trend-note{margin-top:3px;padding-top:3px;font-size:8.5px;line-height:1.28}
   .detail-trend-note-item{margin-top:1px}
+  /* ---- Summary(1페이지) 인쇄 ----
+     한 페이지(1062 × 733px)에 세 띠가 모두 들어와야 한다. 달마다 문구 줄 수가 달라지므로,
+     높이가 문구에 흔들리지 않게 왼쪽(표) 쪽을 먼저 고정 폭·고정 행높이로 못박고
+     남는 폭을 문구에 준다 — 문구 칸이 넓어야 줄이 덜 접혀 높이가 안정된다.
+     왼쪽 596px = 첫 열 96 + 데이터 7열 × 70 + 여백. 오른쪽에 456px가 남는다.
+     그 결과 1~8월 인쇄 높이가 669px로 모두 같다 (한계 733px, 여유 64px). */
+  #tab-main{--main-tbl:596px}
+  #tab-main .sheet-hd{margin:0 0 8px;padding-bottom:5px}
+  #tab-main .sheet-title{font-size:15px}
+  #tab-main .sheet-eyebrow{font-size:9px}
+  .main-band{gap:10px;margin-bottom:9px}
+  #tab-main .tbl-box{margin-bottom:0!important}
+  #tab-main .tbl-hd{padding:4px 11px;font-size:11px}
+  #tab-main .tbl-hd .sub{font-size:9.5px}
+  /* 8열 표(당월·누계)의 열 폭. 머리글 중 가장 넓은 'HUMAX(공통)'이 9.5px에서 약 56px이라
+     70px(좌우 여백 14 포함)이면 잘리지 않는다 — 이 값 아래로 내리면 머리글이 셀을 넘는다. */
+  #tab-main .sum-tbl.alloc-tbl col{width:70px!important}
+  #tab-main .sum-tbl.alloc-tbl col:first-child{width:96px!important}
+  #tab-main .pl-tbl th{padding:3px 7px!important;font-size:9.5px!important}
+  #tab-main .pl-tbl td{padding:4px 7px!important;font-size:12.5px!important;line-height:1.3}
+  #tab-main .pl-tbl td:first-child{padding-left:11px!important}
+  /* 위 첫 열 여백이 !important라 .fee-sub의 들여쓰기까지 함께 지워진다 — 되돌려야
+     본사와 그 아래 구분(인건비~기타)이 같은 자리에서 시작하지 않는다. */
+  #tab-main .pl-tbl .fee-sub td:first-child{padding-left:24px!important;font-size:11.5px!important}
+  /* 집행률 배지가 셀 안에서 가장 큰 요소라 EVCS 표의 행 높이를 결정한다 — 배지도 함께 줄인다. */
+  #tab-main .pl-tbl .kbadge{font-size:8.5px;padding:1px 5px}
+  #tab-main .summary-callout{padding:10px 14px!important;margin-bottom:0!important}
+  #tab-main .summary-callout-title{font-size:9.5px;letter-spacing:1px;margin-bottom:7px}
+  #tab-main .summary-comment-list{font-size:11px;line-height:1.4;gap:4px 0}
+  #tab-main .summary-comment-list li{gap:7px}
+  #tab-main .summary-comment-dot{width:4.5px;height:4.5px;margin-top:6px}
+  #tab-main .summary-comment-list li.summary-comment-sub{font-size:10.5px;margin-top:0;padding-left:10px}
+  #tab-main .summary-comment-list li.summary-comment-detail{font-size:10px;margin-top:-1px;padding-left:19px}
+  /* 도넛 크기는 눈대중이 아니라 계산으로 정한다 — 오른쪽 칸(문구 + 도넛)이 왼쪽 누계 표보다
+     길어지면 그 띠가 문구 줄 수에 따라 늘어나, 달마다 인쇄 높이가 달라진다.
+     도넛을 표 높이 안에 들어오게 잡아 두면 세 띠 모두 표가 높이를 정하고, 문구는 남는 자리
+     안에서만 늘어난다 (1~8월 인쇄 높이가 같은 값으로 고정되는 이유). */
+  #tab-main .donut-box{padding:8px 12px;gap:12px}
+  #tab-main .donut-wrap{width:112px;height:112px}
+  #tab-main .donut-legend li{font-size:9.5px;padding:1px 0}
+  #tab-main .dleg-dot{width:8px;height:8px}
+
   /* 슬라이드 이동 줄은 화면 조작용이라 인쇄물에는 남기지 않는다.
      아래 '슬라이드 쇼' 절의 .slidenav{display:flex}가 이 블록보다 뒤에 있어 특이성이 같으면
      그쪽이 이긴다 — 인쇄에서 확실히 지워지도록 !important를 둔다. */
