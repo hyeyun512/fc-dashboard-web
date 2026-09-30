@@ -297,7 +297,7 @@ export function initDashboard(data: DashboardData): () => void {
   // 상단 당월/누계 토글이 아무 효과가 없는 탭에서는 토글을 숨긴다 — 눌러도 숫자가 안 바뀌면 혼동을 준다.
   // Summary①·②는 당월과 누계를 항상 한 화면에 함께 보여주기 때문이고,
   // Summary③·④는 누계 기준으로만 읽도록 고정했기 때문이다 (getCumScope 참고).
-  const MODE_TOGGLE_HIDDEN_TABS = ["sum-total", "sum-evcs", "sum-detail", "sum-trend"];
+  const MODE_TOGGLE_HIDDEN_TABS = ["main", "sum-total", "sum-evcs", "sum-detail", "sum-trend"];
   function updateModeToggleVisibility(tabId: string) {
     const box = el("modeFilterBox");
     if (box) box.style.display = MODE_TOGGLE_HIDDEN_TABS.includes(tabId) ? "none" : "";
@@ -319,7 +319,7 @@ export function initDashboard(data: DashboardData): () => void {
   }
   const tabEls = Array.from(document.querySelectorAll<HTMLElement>(".tab"));
   tabEls.forEach((t) => t.addEventListener("click", onTabClick));
-  updateModeToggleVisibility("sum-total");
+  updateModeToggleVisibility("main");
 
   // ================= 슬라이드 쇼 =================
   // 탭 하나가 슬라이드 하나다. 보고 자리에서 마우스로 탭을 짚지 않고 좌우 키만으로 넘길 수 있게 한다.
@@ -1510,6 +1510,27 @@ export function initDashboard(data: DashboardData): () => void {
     );
   }
 
+  /**
+   * MAIN — 앞의 세 장(Humax합계 / EVCS사업부 / Humax합계_상세)에서 먼저 읽히는 것만 모아
+   * 인쇄 한 페이지에 담는다. 표·문구는 각 장이 쓰는 것을 그대로 불러 쓰므로, 원본 장을 고치면
+   * 이 장도 같이 바뀐다 (숫자가 두 벌로 갈라지지 않게 하려는 것이다).
+   */
+  function renderMain() {
+    const m = data.byMonth[currentMonth];
+    const cum = m.cumulative;
+    setText("mainMonthTitle", `${currentMonth} 실적`);
+    setText("mainMonthSub", "백만원");
+    setText("mainCumTitle", `${currentMonth} 누계 실적`);
+    setText("mainCumSub", `${months[0]}~${currentMonth} · 백만원`);
+    setHtml("mainMonthTable", allocTotalTable(m.allocationBoard.actual));
+    setHtml("mainCumTable", allocTotalTable(cum.allocationBoard.actual));
+    renderSummaryBox("mainCumComment", "humax_total_cum");
+
+    setText("mainEvcsSub", "백만원 · 연간 집행률 = 누계 실적 ÷ 연간 예산");
+    setHtml("mainEvcsTable", evcsSplitTableBody(m.evcs, cum.evcs));
+    renderSummaryBox("mainEvcsComment", "evcs");
+  }
+
   function renderSumTotal() {
     const m = data.byMonth[currentMonth];
     const cum = m.cumulative;
@@ -1764,6 +1785,7 @@ export function initDashboard(data: DashboardData): () => void {
 
   function renderAll() {
     setText("topbarMeta", `단위: 백만원 · 기준월: ${currentMonth} · 보기: ${currentMode === "month" ? "당월" : "누계(YTD)"}`);
+    renderMain();
     renderSumTotal();
     renderSumEvcs();
     renderSumDetail();

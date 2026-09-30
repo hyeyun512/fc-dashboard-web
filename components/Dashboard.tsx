@@ -94,7 +94,12 @@ export default function Dashboard({ data }: { data: DashboardData }) {
       </div>
 
       <div className="tab-bar">
-        <div className="tab tab-summary-lv active" data-tab="sum-total">
+        {/* 보고 자리에서 먼저 펼치는 한 장 — Humax합계·EVCS사업부·상세 세 장의 핵심만 모아
+            인쇄 한 페이지에 담는다 (2026-09-30 사장님 지시). 뒤의 세 장은 그대로 남겨 둔다. */}
+        <div className="tab tab-summary-lv active" data-tab="main">
+          메인
+        </div>
+        <div className="tab tab-summary-lv" data-tab="sum-total">
           Humax합계
         </div>
         <div className="tab tab-summary-lv" data-tab="sum-evcs">
@@ -142,8 +147,55 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <span className="hint">← → 키로도 이동</span>
       </div>
 
+      {/* ===================== MAIN — 1페이지 요약 =====================
+          Summary①~③에서 사장님이 먼저 보시는 것만 남긴다 — 당월·누계 전사 실적, EVCS 국내/해외,
+          그리고 그 둘을 설명하는 코멘트. 도넛·법인별 상세·구분별 내역은 뒤의 세 장에 그대로 있다.
+          표 두 개를 나란히 두는 이유는 세로로 쌓으면 아래 EVCS와 코멘트가 한 페이지를 넘기 때문이다. */}
+      <div id="tab-main" className="content active">
+        <div className="sheet-hd">
+          <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
+          <div>
+            <div className="sheet-eyebrow">Summary</div>
+            <div className="sheet-title">메인</div>
+          </div>
+        </div>
+
+        <div className="main-row">
+          <div className="tbl-box">
+            <div className="tbl-hd">
+              <span id="mainMonthTitle" /> <span className="sub" id="mainMonthSub" />
+            </div>
+            <div className="tbl-scroll">
+              <div id="mainMonthTable" />
+            </div>
+          </div>
+          <div className="tbl-box">
+            <div className="tbl-hd">
+              <span id="mainCumTitle" /> <span className="sub" id="mainCumSub" />
+            </div>
+            <div className="tbl-scroll">
+              <div id="mainCumTable" />
+            </div>
+          </div>
+        </div>
+
+        <SummaryCommentBox id="mainCumComment" accent="#1d4ed8" />
+
+        <div className="main-row main-row-bottom">
+          <div className="main-evcs">
+            <div className="section-lead" style={{ marginTop: 0 }}>
+              EVCS 국내 · 해외 배부 현황 <span className="sub" id="mainEvcsSub" />
+            </div>
+            <div className="tbl-box" style={{ marginBottom: 0 }}>
+              <div id="mainEvcsTable" />
+            </div>
+          </div>
+          <SummaryCommentBox id="mainEvcsComment" accent="#1d4ed8" />
+        </div>
+      </div>
+
       {/* ===================== SUMMARY① Humax합계 ===================== */}
-      <div id="tab-sum-total" className="content active">
+      <div id="tab-sum-total" className="content">
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
