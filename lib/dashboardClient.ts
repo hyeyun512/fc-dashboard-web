@@ -1685,7 +1685,9 @@ export function initDashboard(data: DashboardData): () => void {
       const ls = SUMMARY_COMMENTS[currentMonth]?.[key];
       return ls && ls.length ? [`[${label}]`, ...ls] : [];
     });
-    setHtml("mainComment", lines.length ? summaryTitleHtml + commentListHtml(lines) : "");
+    // 상자 머리의 'SUMMARY'는 걷는다 — 이 장의 이름이 이미 Summary라 같은 말을 두 번 하게 된다
+    // (2026-09-30 지시). 안의 '당월'/'누계' 머리표만으로 어느 기간 이야기인지 충분히 드러난다.
+    setHtml("mainComment", lines.length ? commentListHtml(lines) : "");
   }
 
   function renderSumTotal() {
