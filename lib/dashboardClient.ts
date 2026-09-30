@@ -278,6 +278,16 @@ export function initDashboard(data: DashboardData): () => void {
     const e = el("tab-" + tabId);
     return !!e && e.classList.contains("active");
   }
+  /**
+   * Summary 장은 제 요약 아래로 Humax합계 · EVCS사업부 · Humax합계_상세 세 장을 그대로 이어 붙여,
+   * 화면에서 스크롤만으로 상세까지 내려보게 한다 (2026-09-30 지시). 마크업을 복제하지 않고 원래 장을
+   * 드러내는 방식이라 숫자도 차트도 한 벌만 존재한다 — 대신 그 세 장은 'active' 표시가 없는 채로
+   * 화면에 나와 있으므로, 차트를 '나중에'로 미뤄 두면 빈 칸으로 남는다. 그래서 따로 가려 본다.
+   */
+  const MAIN_COMPANION_TABS = ["sum-total", "sum-evcs", "sum-detail"];
+  function isShown(tabId: string): boolean {
+    return isActive(tabId) || (isActive("main") && MAIN_COMPANION_TABS.includes(tabId));
+  }
   function destroyChart(id: string) {
     if (charts[id]) {
       try {
@@ -309,7 +319,7 @@ export function initDashboard(data: DashboardData): () => void {
         showChartError(id);
       }
     };
-    if (isActive(tabId)) run();
+    if (isShown(tabId)) run();
     else (CHART_BUILDERS[tabId] = CHART_BUILDERS[tabId] || []).push(run);
   }
 
@@ -329,8 +339,13 @@ export function initDashboard(data: DashboardData): () => void {
     updateModeToggleVisibility(id);
     updateSlideNav();
     requestAnimationFrame(() => {
-      (CHART_BUILDERS[id] || []).forEach((fn) => fn());
-      CHART_BUILDERS[id] = [];
+      // Summary로 올 때는 아래에 딸려 나오는 세 장의 차트도 함께 그린다 — 다른 장에 있는 동안
+      // 보고 월을 바꿔 두면 그 세 장의 차트가 '나중에'로 밀려 있어, 흘려두면 빈 칸으로 보인다.
+      const pending = id === "main" ? [id, ...MAIN_COMPANION_TABS] : [id];
+      pending.forEach((t) => {
+        (CHART_BUILDERS[t] || []).forEach((fn) => fn());
+        CHART_BUILDERS[t] = [];
+      });
     });
   }
   function onTabClick(ev: Event) {
