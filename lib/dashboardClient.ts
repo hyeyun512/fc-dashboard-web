@@ -1626,9 +1626,6 @@ export function initDashboard(data: DashboardData): () => void {
     const cum = m.cumulative;
     const cumLabel = `${months[0]}~${currentMonth}`;
 
-    // 시트 제목이 "Summary"라 eyebrow에 "Summary"를 쓸 수 없다 — 무엇을/언제 보는 장인지 적는다.
-    setText("mainEyebrow", `고정비 실적 · ${currentMonth}`);
-
     // ① 얼마 썼나 — 큰 수 넷. 합계는 Summary 표들과 같은 (A+B) 정의를 쓴다.
     const rowOf = (rows: AllocationRow[], label: string) => rows.find((r) => r.label === label);
     const ab = (r?: AllocationRow) => (r ? r.humaxTotal + r.building : 0);

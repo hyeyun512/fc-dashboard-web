@@ -155,15 +155,9 @@ export default function Dashboard({ data }: { data: DashboardData }) {
           표의 한 줄과 그래프의 한 선이 서로를 가리킨다.
           내용은 dashboardClient의 renderMain이 채운다 (숫자는 모두 배부판에서 그대로 꺼내 쓴다). */}
       <div id="tab-main" className="content active">
-        <div className="sheet-hd">
-          <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
-          <div>
-            {/* 이 시트의 제목이 "Summary"라 다른 시트처럼 eyebrow에 "Summary"를 둘 수 없다 —
-                대신 무엇을/언제 보는 장인지를 적는다 (renderMain이 보고 월을 넣는다). */}
-            <div className="sheet-eyebrow" id="mainEyebrow" />
-            <div className="sheet-title">Summary</div>
-          </div>
-        </div>
+        {/* 다른 시트와 달리 머리글을 두지 않는다 — 탭이 이미 'Summary'라고 말하고 아래 문구 상자도
+            'SUMMARY'라, 맨 위에 한 번 더 적으면 같은 말이 세 번이다 (2026-09-30 지시).
+            보고 월은 상단 바('기준월: 8월')와 KPI 카드 머리('8월 (당월)', '1~8월 누계')에 이미 있다. */}
 
         {/* ① 얼마 썼나 — 큰 수 넷을 맨 위 한 줄에. 표를 읽기 전에 규모가 먼저 들어와야 한다. */}
         <div className="kpi-row main-kpis" id="mainKpis" />
