@@ -419,7 +419,17 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
 /* 인쇄 시 상단 툴바(제목·필터·탭)·하단 footer는 제외 — 시트마다 이미 자체 제목(sheet-hd)이 있어 페이지 헤더 역할을 한다.
    글자 크기·색·테두리는 화면과 동일하게 두고(디자인 일치), 여백만 줄여 가로 한 페이지에 맞춘다. */
 @media print{
-  @page{size:landscape;margin:8mm}
+  /* 여백을 8mm에서 12mm로 넓힌다 — 8mm는 글자가 종이 끝에 붙어 보고서로 좋지 않다.
+     쓸 수 있는 자리가 1062×733 → 1031×702px로 줄어들어, 아래 장별 규칙은 이 값에 맞춰 둔다. */
+  @page{size:landscape;margin:12mm}
+  /* 내용이 위로 몰리지 않게, 짧은 장은 페이지 가운데에 세운다 — 그래야 위아래 여백이
+     고르게 남는다. 빈 Summary 장은 제 자리를 차지하면 빈 페이지가 한 장 더 나오므로 접는다
+     ('~' 선택자는 display와 무관하게 동작하므로 뒤의 세 장은 그대로 붙는다). */
+  .content.active{min-height:100vh;display:flex;flex-direction:column;justify-content:center}
+  #tab-main.active{display:none}
+  #tab-main.active ~ #tab-sum-total,
+  #tab-main.active ~ #tab-sum-detail,
+  #tab-main.active ~ #tab-sum-evcs{min-height:100vh;display:flex;flex-direction:column;justify-content:center}
   /* Summary를 인쇄하면 이어 붙인 세 장이 그대로 세 장으로 나간다 — 화면에서 스크롤로 보던 순서
      그대로다. 가로줄로만 끊으면 한 장이 페이지 경계에서 잘리므로, 둘째·셋째 장은 새 페이지에서
      시작하게 하고 화면용 구분선은 거둔다. */
@@ -466,7 +476,9 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .donut-card-body{gap:8px}
   /* EVCS 상단은 표와 도넛 2장이 인쇄 폭(1062px)을 나눠 쓰므로 카드가 좁다.
      도넛을 줄여 범례가 잘리지 않을 만큼의 자리를 확보한다. */
-  .donut-card .donut-wrap{width:116px;height:116px}
+  /* 여백을 12mm로 넓히면서 가로가 1062→1031px로 줄었다 — 그만큼 카드가 좁아져
+     범례의 '지급수수료'가 '지급수…'로 잘렸다. 도넛을 그만큼 줄여 글자 자리를 돌려준다. */
+  .donut-card .donut-wrap{width:102px;height:102px}
   .donut-card-body{gap:6px}
   .cert-chart{height:150px}
   .cert-row{grid-template-columns:1fr 150px;gap:12px}
@@ -570,7 +582,9 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   /* '배부액 추이' 시트는 그래프가 주인공이라 인쇄에서도 한 페이지가 허락하는 만큼 키운다.
      다만 아래 문구 카드가 늘면 여기서 자리를 내줘야 한 페이지가 유지된다 — 8월에 STB 감소 원인과
      계약서상 잔금이 붙으며 741px까지 가서 400 → 375px로 내렸다 (그만큼 여유가 생긴다). */
-  .trend-panel-full .detail-trend-wrap{height:375px}
+  /* 여백을 12mm로 넓히면서 한 페이지가 733→702px로 줄었다 — 8월처럼 문구가 긴 달에
+     그래프가 그대로면 여유가 3px밖에 안 남아, 그만큼 그래프를 낮은다. */
+  .trend-panel-full .detail-trend-wrap{height:345px}
   .detail-trend-title{font-size:11.5px}
   .summary-comment-list li.summary-comment-sub{font-size:9.5px;margin-top:-1px;padding-left:9px}
   .summary-comment-submark{width:5px;height:5px;border-width:1px;margin-top:4px}

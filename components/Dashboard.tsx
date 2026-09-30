@@ -93,39 +93,38 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         </div>
       </div>
 
+      {/* 탭 이름·차례는 2026-09-30 지시를 그대로 따른다. 상하 관계를 가진 이름은 붙임표 대신
+          가운뙙점으로 잇는다('Humax 전체 · 상세') — 본문에서 이미 쓰는 구분기호라 눈에 덜 걸린다.
+          data-tab 값은 손대지 않는다: 차트 id·인쇄 규칙·슬라이드가 모두 이 값을 붙잡고 있어,
+          보이는 이름만 바꾸면 되는 자리에 내부 이름까지 바꾸면 고칠 곳이 사방으로 번진다. */}
       <div className="tab-bar">
-        {/* 보고 자리에서 먼저 펼치는 한 장 — Humax합계·EVCS사업부·상세 세 장의 핵심만 모아
-            인쇄 한 페이지에 담는다 (2026-09-30 사장님 지시). 뒤의 세 장은 그대로 남겨 둔다.
-            내부 식별자는 'main'으로 남기고 보이는 이름만 "Summary"로 둔다. */}
         <div className="tab tab-summary-lv active" data-tab="main">
           Summary
         </div>
         <div className="tab tab-summary-lv" data-tab="sum-total">
-          Humax합계
-        </div>
-        <div className="tab tab-summary-lv" data-tab="sum-evcs">
-          EVCS사업부
+          1. Humax 전체
         </div>
         <div className="tab tab-summary-lv" data-tab="sum-detail">
-          Humax합계_상세
+          2. Humax 전체 · 상세
         </div>
-        <div className="tab tab-summary-lv" data-tab="sum-trend">
-          배부액 추이
+        <div className="tab tab-summary-lv" data-tab="sum-evcs">
+          3. EVCS 사업부
         </div>
         <div className="tab-sep" />
-        {/* 부록 탭은 'Appendix A'처럼 기호만 달려 있어 무슨 장인지 탭에서 알 수 없었다 —
-            번호에 제목을 붙여 둔다 (2026-09-30 사장님 지시). 슬라이드 선택 목록도 이 글자를 그대로 쓴다. */}
         <div className="tab tab-sub" data-tab="summary">
-          App1. 전사 상세
-        </div>
-        <div className="tab tab-sub" data-tab="evcs">
-          App2. EVCS 상세
+          App1. 전사
         </div>
         <div className="tab tab-sub" data-tab="category">
-          App3. 전사 계정별
+          App2. 전사 · 상세
         </div>
         <div className="tab tab-sub" data-tab="alloc">
-          App4. 전사 배부판
+          App3. 전사 · 배부판
+        </div>
+        <div className="tab tab-sub" data-tab="sum-trend">
+          App4. 전사 · 배부액 추이
+        </div>
+        <div className="tab tab-sub" data-tab="evcs">
+          App5. EVCS 사업부 · 상세
         </div>
       </div>
 
@@ -160,8 +159,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
-            <div className="sheet-eyebrow">Summary</div>
-            <div className="sheet-title">Humax합계</div>
+            <div className="sheet-eyebrow">SUMMARY</div>
+            <div className="sheet-title">1. Humax 전체</div>
           </div>
         </div>
         <div className="sum-block">
@@ -205,13 +204,42 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         </div>
       </div>
 
+      {/* ===================== SUMMARY③ Humax합계_상세 ===================== */}
+      <div id="tab-sum-detail" className="content">
+        <div className="sheet-hd">
+          <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
+          <div>
+            <div className="sheet-eyebrow">SUMMARY</div>
+            <div className="sheet-title">2. Humax 전체 · 상세</div>
+          </div>
+        </div>
+        {/* 2x2 — 위는 추이 두 개(원장 그대로 / 왜곡 수정ver)를 같은 눈금으로 나란히 두어 비교하게 하고,
+            아래는 그 근거가 되는 표와 Summary를 좌우로 둔다. 아래 두 상자는 칸 높이를 꽉 채워
+            아래 선이 한 줄로 맞는다 (칸만 늘리면 안쪽 상자가 짧아 선이 어긋나 보인다). */}
+        {/* 좌: 배부 내역 표 / 우: 항목별 Summary. 두 상자는 칸 높이를 꽉 채워 아래 선이 한 줄로 끝난다
+            (칸만 늘리고 안쪽 상자를 그대로 두면 짧은 쪽 선이 떠 보인다). */}
+        <div className="detail-grid">
+          <div className="tbl-box">
+            <div className="tbl-hd">
+              <span id="sumDetailTitle" /> <span className="sub" id="sumDetailSub" />
+            </div>
+            <div className="tbl-scroll">
+              <div id="sumDetailTable" />
+            </div>
+            <div className="note" id="sumDetailNote" />
+          </div>
+
+          <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="cards" />
+        </div>
+      </div>
+
       {/* ===================== SUMMARY② EVCS사업부 ===================== */}
       <div id="tab-sum-evcs" className="content">
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
-            <div className="sheet-eyebrow">Summary</div>
-            <div className="sheet-title">EVCS사업부</div>
+            <div className="sheet-eyebrow">SUMMARY</div>
+            <div className="sheet-title">3. EVCS 사업부</div>
           </div>
         </div>
         <SummaryCommentBox id="evcsComment" accent="#1d4ed8" />
@@ -246,42 +274,13 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         </div>
       </div>
 
-      {/* ===================== SUMMARY③ Humax합계_상세 ===================== */}
-      <div id="tab-sum-detail" className="content">
-        <div className="sheet-hd">
-          <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
-          <div>
-            <div className="sheet-eyebrow">Summary</div>
-            <div className="sheet-title">Humax합계_상세</div>
-          </div>
-        </div>
-        {/* 2x2 — 위는 추이 두 개(원장 그대로 / 왜곡 수정ver)를 같은 눈금으로 나란히 두어 비교하게 하고,
-            아래는 그 근거가 되는 표와 Summary를 좌우로 둔다. 아래 두 상자는 칸 높이를 꽉 채워
-            아래 선이 한 줄로 맞는다 (칸만 늘리면 안쪽 상자가 짧아 선이 어긋나 보인다). */}
-        {/* 좌: 배부 내역 표 / 우: 항목별 Summary. 두 상자는 칸 높이를 꽉 채워 아래 선이 한 줄로 끝난다
-            (칸만 늘리고 안쪽 상자를 그대로 두면 짧은 쪽 선이 떠 보인다). */}
-        <div className="detail-grid">
-          <div className="tbl-box">
-            <div className="tbl-hd">
-              <span id="sumDetailTitle" /> <span className="sub" id="sumDetailSub" />
-            </div>
-            <div className="tbl-scroll">
-              <div id="sumDetailTable" />
-            </div>
-            <div className="note" id="sumDetailNote" />
-          </div>
-
-          <SummaryCommentBox id="sumDetailComment" accent="#1d4ed8" variant="cards" />
-        </div>
-      </div>
-
       {/* ===================== SUMMARY④ 배부액 추이 ===================== */}
       <div id="tab-sum-trend" className="content">
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>
-            <div className="sheet-eyebrow">Summary</div>
-            <div className="sheet-title">배부액 추이</div>
+            <div className="sheet-eyebrow">APPENDIX</div>
+            <div className="sheet-title">App4. 전사 · 배부액 추이</div>
           </div>
         </div>
         {/* 원장 그대로의 추이 위에, 회계 처리 시기 오류로 튄 구간만 점선으로 겹쳐 그린다.
@@ -306,8 +305,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">App1</div>
-            <div className="sheet-title">전사 상세</div>
+            <div className="sheet-eyebrow">APPENDIX</div>
+            <div className="sheet-title">App1. 전사</div>
           </div>
         </div>
         {/* 요약 수치·추이·구성비를 한 줄에 둔다 — 부록은 훑어보는 장이라 세로로 쌓지 않는다. */}
@@ -368,8 +367,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">App2</div>
-            <div className="sheet-title">EVCS(사업부) 상세</div>
+            <div className="sheet-eyebrow">APPENDIX</div>
+            <div className="sheet-title">App5. EVCS 사업부 · 상세</div>
           </div>
         </div>
         <div className="appx-top-row">
@@ -483,8 +482,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">App3</div>
-            <div className="sheet-title">전사 계정별</div>
+            <div className="sheet-eyebrow">APPENDIX</div>
+            <div className="sheet-title">App2. 전사 · 상세</div>
           </div>
         </div>
         <div className="tbl-box">
@@ -530,8 +529,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">App4</div>
-            <div className="sheet-title">전사 배부판</div>
+            <div className="sheet-eyebrow">APPENDIX</div>
+            <div className="sheet-title">App3. 전사 · 배부판</div>
           </div>
         </div>
         <div id="allocTrendInsight" />
