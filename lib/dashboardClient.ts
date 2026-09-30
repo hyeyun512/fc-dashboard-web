@@ -1282,7 +1282,7 @@ export function initDashboard(data: DashboardData): () => void {
       const value = quiet
         ? `<div class="alloc-card-val alloc-card-quiet">예산 수준</div>`
         : `<div class="alloc-card-val ${total > 0 ? "neg" : "pos"}">${money(total, { sign: true })}<span class="alloc-card-unit">백만 ${
-            total > 0 ? "초과" : "미달"
+            total > 0 ? "초과" : "미집행"
           }</span></div>`;
       const cause =
         top && !quiet
@@ -1371,7 +1371,7 @@ export function initDashboard(data: DashboardData): () => void {
      한 줄이 전부 같은 회색·같은 굵기라 훑어볼 곳이 없다는 것이 문제였으므로,
      눈이 걸릴 지점을 딱 두 축으로만 만든다 — 강조가 셋을 넘으면 아무것도 강조되지 않는다.
        ① 수치(금액·비율): 한 단계 진한 먹 + 굵기. "얼마인가"를 먼저 읽게 한다.
-       ② 방향(초과/미달, 부호 붙은 증감): 표와 같은 색 언어로 초과=빨강 / 미달=파랑.
+       ② 방향(초과/미집행, 부호 붙은 증감): 표와 같은 색 언어로 초과=빨강 / 미집행=파랑.
      그리고 콜론 앞 머리표는 강조 대신 뒤로 물려(③) 뒤의 값이 앞에 서게 한다.
      글자 크기·줄 간격은 건드리지 않는다 — 인쇄 한 페이지(733px) 여유가 65px뿐이라
      줄이 한 번만 더 접혀도 넘친다. */
@@ -1380,7 +1380,7 @@ export function initDashboard(data: DashboardData): () => void {
   const COMMENT_TIME_UNIT = /^(월|년|차|개월|분기|Q)$/;
   /**
    * 한 번에 훑어 조판 대상만 집어낸다. 잡아내는 것은 셋뿐이다.
-   *   1) 방향을 말하는 낱말 '초과'/'미달'
+   *   1) 방향을 말하는 낱말 '초과'/'미집행'/'하회' (예전 문구에 남아 있을 '미달'도 같이 받는다)
    *   2) 부호(+/-) — 바로 뒤에 숫자가 붙은 것만 부호로 본다 ('관리비 0.6억 - 실비수입 0.2억'의 빼기는 걸리지 않는다)
    *   3) 숫자 + 단위 — '1~3월'이나 '441~493백만'처럼 물결로 이은 범위까지 한 덩어리로 본다
    * 천 단위 쉼표는 뒤에 숫자 세 자리가 붙은 것만 수의 일부로 본다 ('지급수수료 +106, 특허처리비'의
@@ -1389,7 +1389,7 @@ export function initDashboard(data: DashboardData): () => void {
    */
   const COMMENT_NUM = String.raw`\d+(?:,\d{3})*(?:\.\d+)?`;
   const COMMENT_TOKEN = new RegExp(
-    String.raw`(초과|미달)|([+-]?)(${COMMENT_NUM}(?:~${COMMENT_NUM})?)(백만원|억원|천원|백만|억|원|%|개월|분기|년|차|월|Q|배(?![가-힣]))?`,
+    String.raw`(초과|미집행|하회|미달)|([+-]?)(${COMMENT_NUM}(?:~${COMMENT_NUM})?)(백만원|억원|천원|백만|억|원|%|개월|분기|년|차|월|Q|배(?![가-힣]))?`,
     "g"
   );
   /**
@@ -1409,7 +1409,8 @@ export function initDashboard(data: DashboardData): () => void {
       out += text.slice(cut, m.index);
       cut = m.index + m[0].length;
       if (m[1]) {
-        // 초과=빨강 / 미달=파랑 — 표의 .neg/.pos를 그대로 쓴다 (색을 새로 늘리면 표의 색과 싸운다).
+        // 초과=빨강 / 그 밖의 방향어(미집행·하회)=파랑 — 표의 .neg/.pos를 그대로 쓴다
+        // (색을 새로 늘리면 표의 색과 싸운다).
         out += `<span class="sc-dir ${m[1] === "초과" ? "neg" : "pos"}">${m[1]}</span>`;
         continue;
       }

@@ -1,5 +1,8 @@
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:#f4f5f7;color:#1a202c;min-height:100vh;font-size:14px}
+/* 영문·숫자는 Arial로 읽는다 (2026-09-30 사장님 지시). 브라우저는 글자 하나하나 앞에서부터
+   그 글자를 가진 첫 글꼴을 고르므로, Arial을 맨 앞에 두면 Arial에 있는 영문·숫자만 Arial로 나가고
+   Arial에 없는 한글은 뒤의 한글 글꼴로 저절로 넘어간다. 한글 글꼴을 Arial 뒤로 남겨두는 이유다. */
+body{font-family:Arial,'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-serif;background:#f4f5f7;color:#1a202c;min-height:100vh;font-size:14px}
 
 .topbar{background:#fff;border-bottom:0.5px solid #e2e8f0;padding:13px 28px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px}
 .topbar-title{font-size:17px;font-weight:700;color:#1a202c;display:flex;align-items:center;gap:8px}

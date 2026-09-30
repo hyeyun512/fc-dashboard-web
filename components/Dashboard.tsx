@@ -107,17 +107,19 @@ export default function Dashboard({ data }: { data: DashboardData }) {
           배부액 추이
         </div>
         <div className="tab-sep" />
+        {/* 부록 탭은 'Appendix A'처럼 기호만 달려 있어 무슨 장인지 탭에서 알 수 없었다 —
+            번호에 제목을 붙여 둔다 (2026-09-30 사장님 지시). 슬라이드 선택 목록도 이 글자를 그대로 쓴다. */}
         <div className="tab tab-sub" data-tab="summary">
-          Appendix A
+          App1. 전사 상세
         </div>
         <div className="tab tab-sub" data-tab="evcs">
-          Appendix B
+          App2. EVCS 상세
         </div>
         <div className="tab tab-sub" data-tab="category">
-          Appendix C
+          App3. 전사 계정별
         </div>
         <div className="tab tab-sub" data-tab="alloc">
-          Appendix D
+          App4. 전사 배부판
         </div>
       </div>
 
@@ -291,7 +293,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">Appendix A</div>
+            <div className="sheet-eyebrow">App1</div>
             <div className="sheet-title">전사 상세</div>
           </div>
         </div>
@@ -353,7 +355,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">Appendix B</div>
+            <div className="sheet-eyebrow">App2</div>
             <div className="sheet-title">EVCS(사업부) 상세</div>
           </div>
         </div>
@@ -468,7 +470,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">Appendix C</div>
+            <div className="sheet-eyebrow">App3</div>
             <div className="sheet-title">전사 계정별</div>
           </div>
         </div>
@@ -515,7 +517,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <div className="sheet-hd">
           <div className="sheet-hd-bar" />
           <div>
-            <div className="sheet-eyebrow">Appendix D</div>
+            <div className="sheet-eyebrow">App4</div>
             <div className="sheet-title">전사 배부판</div>
           </div>
         </div>
