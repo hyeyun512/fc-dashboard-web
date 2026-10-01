@@ -484,6 +484,35 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   .cert-row{grid-template-columns:1fr 150px;gap:12px}
   .cert-value{font-size:15px}
 
+  /* ---- 3. EVCS 사업부 인쇄 ----
+     위의 축소 규칙들은 행이 많은 부록을 한 페이지에 넣으려고 만든 것인데,
+     이 장은 내용이 짧아(348px / 702px) 같이 줄이면 가운데 작게 모여 섬처럼 뜨다.
+     자리가 남는 장이니 줄이지 말고 돌려놓는다 — 칸과 글자를 키워 페이지를 채운다. */
+  #tab-sum-evcs .sheet-hd{margin:0 0 18px;padding-bottom:12px}
+  #tab-sum-evcs .summary-callout{padding:15px 20px;margin-bottom:18px}
+  #tab-sum-evcs .summary-callout-title{margin-bottom:10px}
+  #tab-sum-evcs .summary-comment-list{gap:9px 20px;font-size:13px;line-height:1.5}
+  #tab-sum-evcs .summary-comment-list li.summary-comment-sub{font-size:12px}
+  #tab-sum-evcs .section-lead{font-size:13.5px;margin:0 0 10px}
+  #tab-sum-evcs .evcs-top{gap:16px}
+  #tab-sum-evcs .tbl-hd{padding:10px 16px;font-size:13px}
+  /* 가로 여백은 건들지 않는다 — 표가 넓어지면 그만큼 도넛 카드를 밀어 범례가 잘린다. */
+  #tab-sum-evcs .pl-tbl th{padding:9px 10px!important;font-size:11.5px!important}
+  #tab-sum-evcs .pl-tbl td{padding:11px 10px!important;font-size:14px!important}
+  #tab-sum-evcs .pl-tbl .kbadge{font-size:11px;padding:2px 9px}
+  #tab-sum-evcs .donut-card{padding:12px 14px;gap:8px}
+  #tab-sum-evcs .donut-card-title{font-size:12.5px}
+  #tab-sum-evcs .donut-card-body{gap:10px}
+  /* 도넛과 범례를 옆으로 두면 카드 폭(247px)을 나눠 써야 해 도넛도 작고 '여비교통비'도
+     잘렸다. 위아래로 쌓으면 둘 다 카드 폭을 온전히 써서, 도넛을 키우고도 이름이 다 들어간다.
+     카드가 높아지는 것은 이 장에서는 이득이다 — 빈 종이를 그만큼 줄인다. */
+  #tab-sum-evcs .donut-card-body{flex-direction:column;gap:10px}
+  #tab-sum-evcs .donut-card .donut-wrap{width:150px;height:150px}
+  #tab-sum-evcs .donut-legend{width:100%}
+  #tab-sum-evcs .donut-legend li{font-size:11px;padding:3px 0}
+  /* 표는 다섯 행뿐이라 기본 높이로는 종이 절반도 안 채운다 — 칸 높이를 직접 준다. */
+  #tab-sum-evcs .pl-tbl tbody tr{height:54px}
+
   /* Appendix는 표 행이 많아, 인쇄 분량을 줄이도록 카드·차트·표를 한 단계 더 줄인다.
      (Appendix A는 이 설정으로 가로 한 페이지에 들어간다. B는 대계정 행이 많아 2페이지로 나뉜다.) */
   #tab-summary .callout,#tab-evcs .callout,#tab-category .callout{padding:7px 12px;font-size:11px;margin-bottom:8px}
