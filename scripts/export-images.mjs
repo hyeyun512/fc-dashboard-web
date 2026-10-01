@@ -60,10 +60,11 @@ if (!CHROME) throw new Error("크롬(또는 엣지)을 찾지 못했습니다.")
  * Summary 탭은 1. Humax 전체 · 2. 전체 · 상세 · 3. EVCS 사업부 세 장을 이어 보여 주므로,
  * 그 탭을 통째로 찍으면 세 장이 한 장의 그림으로 나온다 (2026-10-01 지시).
  * whole=true는 '탭 하나가 아니라 화면에 나온 것 전부를 찍는다'는 표시다.
+ *
+ * 배부액 추이는 App4로 옮겨가 보고 메일에서 뺀다 — 부록은 메일에 붙이지 않고 대시보드에서 본다.
  */
 const SHEETS = [
-  { tab: "main", name: "1-Summary(1~3)", whole: true },
-  { tab: "sum-trend", name: "2-배부액추이" },
+  { tab: "main", name: "Summary(1~3)", whole: true },
 ];
 
 /** 열람 암호 — .env.local의 DASHBOARD_PASSWORD를 쓴다 (쿠키에는 해시만 담긴다). */
@@ -315,7 +316,11 @@ const pastePath = join(outDir, "붙여넣기용.html");
 writeFileSync(pastePath, pasteHtml, "utf8");
 console.log(`  붙여넣기용.html  (${(pasteHtml.length / 1024 / 1024).toFixed(1)}MB) — 열어서 Ctrl+A → Ctrl+C → 메일에 붙여넣기`);
 
-console.log(`\n완료 — PNG를 하나씩 붙이거나, '붙여넣기용.html'로 ${SHEETS.length}장을 한 번에 붙여 넣으면 됩니다.`);
+console.log(
+  SHEETS.length > 1
+    ? `\n완료 — PNG를 하나씩 붙이거나, '붙여넣기용.html'로 ${SHEETS.length}장을 한 번에 붙여 넣으면 됩니다.`
+    : `\n완료 — PNG를 그대로 붙이거나, '붙여넣기용.html'을 열어 Ctrl+A → Ctrl+C 후 메일에 붙여 넣으면 됩니다.`
+);
 ws.close();
 chrome.kill();
 process.exit(0);
