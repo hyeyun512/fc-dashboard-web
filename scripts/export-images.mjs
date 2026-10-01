@@ -56,11 +56,14 @@ const CHROME_CANDIDATES = [
 const CHROME = CHROME_CANDIDATES.find((p) => existsSync(p));
 if (!CHROME) throw new Error("크롬(또는 엣지)을 찾지 못했습니다.");
 
+/**
+ * Summary 탭은 1. Humax 전체 · 2. 전체 · 상세 · 3. EVCS 사업부 세 장을 이어 보여 주므로,
+ * 그 탭을 통째로 찍으면 세 장이 한 장의 그림으로 나온다 (2026-10-01 지시).
+ * whole=true는 '탭 하나가 아니라 화면에 나온 것 전부를 찍는다'는 표시다.
+ */
 const SHEETS = [
-  { tab: "sum-total", name: "1-Humax합계" },
-  { tab: "sum-evcs", name: "2-EVCS사업부" },
-  { tab: "sum-detail", name: "3-Humax합계_상세" },
-  { tab: "sum-trend", name: "4-배부액추이" },
+  { tab: "main", name: "1-Summary(1~3)", whole: true },
+  { tab: "sum-trend", name: "2-배부액추이" },
 ];
 
 /** 열람 암호 — .env.local의 DASHBOARD_PASSWORD를 쓴다 (쿠키에는 해시만 담긴다). */
@@ -122,6 +125,9 @@ const EXPORT_CSS = `
   /* EVCS 표 머리말의 설명이 길어 두 줄로 접힌다 — 그 줄만 한 단계 줄여 한 줄에 넣는다. */
   #tab-sum-evcs .section-lead .sub{font-size:11.5px}
   .detail-trend-wrap{height:320px}
+  /* Summary는 세 장을 이어 찍으므로, 장과 장 사이가 붙어 보이지 않게 띄운다. */
+  #tab-main.active ~ #tab-sum-detail,
+  #tab-main.active ~ #tab-sum-evcs{padding-top:30px!important;margin-top:14px!important}
   /* 마지막 요소 아래 여백은 그림 밑에 빈 띠로 남는다. */
   .content > *:last-child{margin-bottom:0!important}
   .sum-block:last-child{margin-bottom:0!important}
@@ -257,8 +263,14 @@ for (const sheet of SHEETS) {
   await sleep(2200);
 
   const size = await evaluate(`(() => {
-    const c = document.getElementById('tab-${sheet.tab}');
-    return { w: Math.ceil(c.scrollWidth), h: Math.ceil(c.getBoundingClientRect().height) };
+    const live = (${JSON.stringify(!!sheet.whole)}
+      ? [...document.querySelectorAll('.content')]
+      : [document.getElementById('tab-${sheet.tab}')]
+    ).filter(c => c && getComputedStyle(c).display !== 'none' && c.getBoundingClientRect().height > 1);
+    if (!live.length) return { w: 0, h: 0 };
+    const top = Math.min(...live.map(c => c.getBoundingClientRect().top));
+    const bot = Math.max(...live.map(c => c.getBoundingClientRect().bottom));
+    return { w: Math.ceil(Math.max(...live.map(c => c.scrollWidth))), h: Math.ceil(bot - top) };
   })()`);
   // 시트 높이에 맞춰 창을 늘려 통째로 담는다 (스크롤로 잘리지 않게).
   await setViewport(Math.max(WIDTH, size.w), size.h);
@@ -303,7 +315,7 @@ const pastePath = join(outDir, "붙여넣기용.html");
 writeFileSync(pastePath, pasteHtml, "utf8");
 console.log(`  붙여넣기용.html  (${(pasteHtml.length / 1024 / 1024).toFixed(1)}MB) — 열어서 Ctrl+A → Ctrl+C → 메일에 붙여넣기`);
 
-console.log(`\n완료 — PNG를 하나씩 붙이거나, '붙여넣기용.html'로 네 장을 한 번에 붙여 넣으면 됩니다.`);
+console.log(`\n완료 — PNG를 하나씩 붙이거나, '붙여넣기용.html'로 ${SHEETS.length}장을 한 번에 붙여 넣으면 됩니다.`);
 ws.close();
 chrome.kill();
 process.exit(0);
