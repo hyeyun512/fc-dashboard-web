@@ -87,6 +87,12 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               </button>
             </div>
           </div>
+          {/* EVCS 상세를 보고용·대조직·대계정까지 펼친 엑셀. 특정 장에 묶지 않고 상단 바에 둔다 —
+              개발안에서 '(공통)' 항목이라 어느 장을 보고 있든 눈에 띄어야 한다 (2026-10-02 지시).
+              파일은 누를 때 만들어 내려주므로 원장이 바뀌면 받는 파일도 바뀐다. */}
+          <a className="topbar-dl" href="/api/evcs-detail" download>
+            EVCS 상세 엑셀
+          </a>
           <span className="tag" id="genTag">
             Supabase 실시간 연동
           </span>
@@ -233,11 +239,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
             <div className="sheet-eyebrow">SUMMARY</div>
             <div className="sheet-title">3. EVCS 사업부</div>
           </div>
-          {/* 이 장의 숫자를 보고용·대조직·대계정까지 펼친 엑셀. 머리 오른쪽에 두어 장을 열자마자 눈에 띄게 한다
-              (2026-10-02 지시). 파일은 요청 시점에 만들어 내려주므로 원장이 바뀌면 받는 파일도 바뀐다. */}
-          <a className="sheet-hd-dl" href="/api/evcs-detail" download>
-            상세 엑셀 내려받기
-          </a>
         </div>
         <SummaryCommentBox id="evcsComment" accent="#1d4ed8" />
 

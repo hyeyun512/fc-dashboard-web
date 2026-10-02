@@ -696,15 +696,15 @@ tr.row-folded .row-fold{transform:rotate(-90deg)}
 /* 인쇄에는 누를 수 없으니 표식만 지운다 — 접어 둔 상태는 그대로 인쇄된다. */
 @media print{.row-fold{display:none}}
 
-/* ---- 상세 엑셀 내려받기 (3. EVCS 사업부) ----
-   시트 머리 오른쪽 끝에 붙는다. 보는 장치가 아니라 가져가는 장치라, 표 색을 쓰지 않고
-   테두리만 있는 단추로 두어 숫자와 다투지 않게 한다. 인쇄에는 나오지 않는다. */
-.sheet-hd-dl{margin-left:auto;flex:none;font-size:12.5px;font-weight:600;color:#1d4ed8;
-  background:#fff;border:1px solid #bfdbfe;border-radius:8px;padding:7px 14px;text-decoration:none;
-  white-space:nowrap;transition:background .12s,border-color .12s}
-.sheet-hd-dl:hover{background:#eff6ff;border-color:#93c5fd}
-.sheet-hd-dl::before{content:"⤓";margin-right:6px;font-weight:700}
-@media print{.sheet-hd-dl{display:none}}
+/* ---- EVCS 상세 엑셀 내려받기 (상단 바) ----
+   보는 장치가 아니라 가져가는 장치라, 표 색을 쓰지 않고 테두리만 있는 단추로 두어 숫자와 다투지
+   않게 한다. 옆의 '실시간 연동' 표식과 같은 높이로 선다. 인쇄에는 나오지 않는다. */
+.topbar-dl{flex:none;font-size:12px;font-weight:600;color:#1d4ed8;background:#fff;
+  border:1px solid #bfdbfe;border-radius:8px;padding:6px 12px;text-decoration:none;white-space:nowrap;
+  transition:background .12s,border-color .12s}
+.topbar-dl:hover{background:#eff6ff;border-color:#93c5fd}
+.topbar-dl::before{content:"⤓";margin-right:5px;font-weight:700}
+@media print{.topbar-dl{display:none}}
 
 /* ---- 대계정별 상세 (App2 · App5) 다듬기 ----
    가로 실선은 구분이 바뀌는 자리에만 둔다 — 같은 구분 안의 대계정 사이에 있던 연한 줄을 걷어내
