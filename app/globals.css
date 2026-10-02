@@ -696,15 +696,17 @@ tr.row-folded .row-fold{transform:rotate(-90deg)}
 /* 인쇄에는 누를 수 없으니 표식만 지운다 — 접어 둔 상태는 그대로 인쇄된다. */
 @media print{.row-fold{display:none}}
 
-/* ---- EVCS 상세 엑셀 내려받기 (상단 바) ----
-   보는 장치가 아니라 가져가는 장치라, 표 색을 쓰지 않고 테두리만 있는 단추로 두어 숫자와 다투지
-   않게 한다. 옆의 '실시간 연동' 표식과 같은 높이로 선다. 인쇄에는 나오지 않는다. */
-.topbar-dl{flex:none;font-size:12px;font-weight:600;color:#1d4ed8;background:#fff;
-  border:1px solid #bfdbfe;border-radius:8px;padding:6px 12px;text-decoration:none;white-space:nowrap;
+/* ---- 첨부파일 칩 (상단 바) ----
+   메일에 붙은 첨부처럼, 제목 아래에 가져갈 파일을 알약 모양으로 늘어놓는다. 보는 장치가 아니라
+   가져가는 장치라 표 색을 쓰지 않고 옅은 바탕과 가는 테두리만 둔다. 인쇄에는 나오지 않는다. */
+.topbar-files{display:flex;flex-wrap:wrap;gap:8px;margin-top:9px}
+.file-chip{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;
+  color:#1d4ed8;background:#eff6ff;border:0.5px solid #bfdbfe;border-radius:999px;
+  padding:5px 12px 5px 10px;text-decoration:none;white-space:nowrap;
   transition:background .12s,border-color .12s}
-.topbar-dl:hover{background:#eff6ff;border-color:#93c5fd}
-.topbar-dl::before{content:"⤓";margin-right:5px;font-weight:700}
-@media print{.topbar-dl{display:none}}
+.file-chip:hover{background:#dbeafe;border-color:#93c5fd}
+.file-chip svg{flex:none}
+@media print{.topbar-files{display:none}}
 
 /* ---- 대계정별 상세 (App2 · App5) 다듬기 ----
    가로 실선은 구분이 바뀌는 자리에만 둔다 — 같은 구분 안의 대계정 사이에 있던 연한 줄을 걷어내

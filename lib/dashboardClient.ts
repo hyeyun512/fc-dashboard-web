@@ -1862,6 +1862,8 @@ export function initDashboard(data: DashboardData): () => void {
 
   function renderAll() {
     setText("topbarMeta", `단위: 백만원 · 기준월: ${currentMonth} · 보기: ${currentMode === "month" ? "당월" : "누계(YTD)"}`);
+    // 칩에 적는 이름을 내려받는 파일 이름과 같게 둔다 — 누르기 전에 무엇이 받아지는지 알 수 있다.
+    setText("evcsDetailFileName", `EVCS ${currentMonth} 누계 실적 상세`);
     renderSumTotal();
     renderSumEvcs();
     renderSumDetail();

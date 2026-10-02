@@ -70,6 +70,27 @@ export default function Dashboard({ data }: { data: DashboardData }) {
           <div className="topbar-meta" id="topbarMeta">
             단위: 백만원
           </div>
+          {/* 첨부파일 줄. 메일에 파일을 붙여 보내듯, 제목 아래에 가져갈 것을 늘어놓는다
+              (2026-10-02 지시). 특정 장에 묶지 않는 이유는 개발안에서 '(공통)' 항목이기 때문이다.
+              파일은 누를 때 원장에서 만들어 내려주므로, 원장이 바뀌면 받는 파일도 바뀐다. */}
+          <div className="topbar-files">
+            <a className="file-chip" href="/api/evcs-detail" download>
+              <svg width="12" height="14" viewBox="0 0 12 14" fill="none" aria-hidden="true">
+                <path
+                  d="M1 1.5A.5.5 0 0 1 1.5 1H7l4 4v7.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-11Z"
+                  fill="currentColor"
+                  opacity=".18"
+                />
+                <path
+                  d="M1 1.5A.5.5 0 0 1 1.5 1H7l4 4v7.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5v-11ZM7 1v4h4"
+                  stroke="currentColor"
+                  strokeWidth="1"
+                  strokeLinejoin="round"
+                />
+              </svg>
+              <span id="evcsDetailFileName">EVCS 누계 실적 상세</span>
+            </a>
+          </div>
         </div>
         <div className="topbar-right">
           <div className="filter-box">
@@ -87,12 +108,6 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               </button>
             </div>
           </div>
-          {/* EVCS 상세를 보고용·대조직·대계정까지 펼친 엑셀. 특정 장에 묶지 않고 상단 바에 둔다 —
-              개발안에서 '(공통)' 항목이라 어느 장을 보고 있든 눈에 띄어야 한다 (2026-10-02 지시).
-              파일은 누를 때 만들어 내려주므로 원장이 바뀌면 받는 파일도 바뀐다. */}
-          <a className="topbar-dl" href="/api/evcs-detail" download>
-            EVCS 상세 엑셀
-          </a>
           <span className="tag" id="genTag">
             Supabase 실시간 연동
           </span>
