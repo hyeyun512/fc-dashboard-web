@@ -33,26 +33,9 @@ const PREFERRED_CATEGORY_ORDER = ["인건비", "여비교통비", "지급수수�
 const PREFERRED_FEE_ORDER = ["29 지급수수료", "40 외주개발용역비", "41 인증대행료", "42 특허처리비"];
 const HQ_ORDER: Record<string, number> = { 본사: 0, 법인: 1 };
 const PREFERRED_HQ_DEPT_ORDER = ["1. 사업 그룹", "2. 개발 그룹", "3. SCM 부문", "4. Media그룹", "5. Staff부문"];
-/**
- * Staff부문 하위 조직은 원장(large_org)에 열몇 개로 흩어져 있어 그대로 세우면 표가 너무 길다.
- * 보고에서 읽는 단위는 넷뿐이므로 그 넷으로 모아 세운다 (2026-10-02 개발안의 매핑 기준).
- * 여기 없는 조직이 새로 생기면 제 이름 그대로 뒤에 붙어, 빠뜨린 것이 눈에 띈다.
- */
-const PREFERRED_STAFF_SUBORG_ORDER = ["CEO", "Staff(CEO)", "경영지원실", "HR실"];
-const STAFF_SUBORG_MEMBERS: Record<string, string[]> = {
-  "CEO": ["CEO"],
-  "Staff(CEO)": ["EVCS부문장", "IT팀", "Staff(CEO)", "법무팀", "회계팀", "투자관리팀"],
-  "경영지원실": ["경영지원실", "재무팀", "경영관리팀"],
-  "HR실": ["HR실장", "HR팀", "업무지원팀"],
-};
-const STAFF_SUBORG_OF = new Map<string, string>(
-  Object.entries(STAFF_SUBORG_MEMBERS).flatMap(([group, members]) => members.map((m) => [m, group] as const))
-);
-/** 원장의 조직 이름 -> 보고에서 세우는 묶음 이름. */
-function staffGroupOf(largeOrg: string): string {
-  return STAFF_SUBORG_OF.get(largeOrg) ?? largeOrg;
-}
 import { CORP_GROUPS, CORP_OTHER_LABEL } from "./corpGroups";
+// Staff부문 하위 조직 묶음 — EVCS 상세 엑셀도 같은 기준으로 묶어야 해서 따로 빼 두었다.
+import { PREFERRED_STAFF_SUBORG_ORDER, staffGroupOf } from "./staffGroups";
 
 type Row = {
   month: string;

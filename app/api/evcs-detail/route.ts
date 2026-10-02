@@ -1,12 +1,16 @@
 import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
+import { STAFF_USE, staffGroupOf, staffRank } from "@/lib/staffGroups";
 
 /**
  * EVCS 사업부 상세를 엑셀 한 장으로 내려준다.
  *
- * 행은 보고용 → 대조직 → 구분 → 대계정으로 내려가고, 구분·보고용·본사/법인·총합계마다 합계 줄이 선다.
+ * 행은 보고용 → 구분 → 대계정으로 내려가고, 구분·보고용·본사/법인·총합계마다 합계 줄이 선다.
  * 같은 이름이 줄마다 되풀이되지 않도록 묶음 첫 줄에만 적는다.
+ *
+ * 대조직은 '5. Staff부문'에서만 쓴다 — 보고가 Staff만 하위 조직까지 갈라 보기 때문이다.
+ * 나머지 보고용은 대조직을 비워 두어 보고용 하나로 모인다(사업 그룹 + 품질관리팀 → 1. 사업 그룹).
  *
  * 열은 1월부터 보고월까지 월 블록 + 끝에 연간(26BP 예산 / 누계 실적) 블록이다.
  * 한 블록은 [예산 국내·해외·계][실적 국내·해외·계][차이][집행률]로, 예산과 실적이 상위에 서고
@@ -78,8 +82,10 @@ export async function GET() {
 
   // ── 모으기 ──────────────────────────────────────────────────────────────────
   const SEP = "\u0001";
+  /** 대조직은 Staff부문만 세운다. 나머지는 빈칸이라 같은 보고용·구분·대계정끼리 저절로 합쳐진다. */
+  const orgOf = (r: Row) => (r.report_use_re === STAFF_USE ? staffGroupOf(r.large_org ?? "") : "");
   const keyOf = (r: Row) =>
-    [r.hq_corp ?? "", r.report_use_re ?? "", r.large_org ?? "", r.category ?? "", r.main_account_re ?? ""].join(SEP);
+    [r.hq_corp ?? "", r.report_use_re ?? "", orgOf(r), r.category ?? "", r.main_account_re ?? ""].join(SEP);
   const actMap = new Map<string, Map<string, Cell>>();
   const budMap = new Map<string, Map<string, Cell>>();
   const budYear = new Map<string, Cell>();
@@ -110,6 +116,7 @@ export async function GET() {
     return (
       (isHq(a) ? 0 : 1) - (isHq(b) ? 0 : 1) ||
       ua.localeCompare(ub, "ko") ||
+      staffRank(oa) - staffRank(ob) ||
       oa.localeCompare(ob, "ko") ||
       catRank(ca) - catRank(cb) ||
       ca.localeCompare(cb, "ko") ||
