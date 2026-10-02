@@ -334,6 +334,17 @@ export function initDashboard(data: DashboardData): () => void {
       CHART_BUILDERS[id] = [];
     });
   }
+  /** 배부판에서 하위 행을 거느린 줄을 눌러 접고 편다. 표가 다시 그려져도 동작하도록 문서에 한 번만 건다. */
+  function onAllocFoldClick(ev: Event) {
+    const tr = (ev.target as HTMLElement).closest("tr[data-alloc-parent]") as HTMLElement | null;
+    if (!tr) return;
+    const id = tr.dataset.allocParent!;
+    const open = !tr.classList.toggle("alloc-folded");
+    tr.closest("table")?.querySelectorAll<HTMLElement>(`tr[data-alloc-child="${id}"]`)
+      .forEach((kid) => { kid.style.display = open ? "" : "none"; });
+  }
+  document.addEventListener("click", onAllocFoldClick);
+
   function onTabClick(ev: Event) {
     activateTab((ev.currentTarget as HTMLElement).dataset.tab!);
   }
@@ -1135,6 +1146,26 @@ export function initDashboard(data: DashboardData): () => void {
   }
   // Shared 그룹의 7개 세부 열(H.Mobility~H.Networks)은 기본적으로 화면 밖으로 밀어두고,
   // 자세히 보고 싶을 때만 표를 오른쪽으로 스크롤해서 보게 한다 (가독성을 위해 기본은 숨김에 가깝게).
+  /**
+   * 배부판에서 하위 행(level 2 — Staff부문 아래 대조직)을 거느린 줄에 접기 단추를 붙인다.
+   * Staff부문만 하위가 있어 표가 그만큼 길어지는데, 늘 펼쳐 둘 필요는 없다는 지시다(2026-10-02).
+   * 기본은 펼친 상태 — 지금 보이던 것이 그대로 보여야 하고, 접는 것은 보는 사람이 고른다.
+   */
+  function allocToggleMarks(rows: AllocationRow[]): { attr: (i: number) => string; mark: (i: number) => string } {
+    const parentOf = new Map<number, number>();   // 하위 행 index -> 부모 index
+    const hasKids = new Set<number>();
+    let cur = -1;
+    rows.forEach((r, i) => {
+      if (r.level === 1) cur = i;
+      else if (r.level === 2 && cur >= 0) { parentOf.set(i, cur); hasKids.add(cur); }
+    });
+    return {
+      attr: (i) =>
+        hasKids.has(i) ? ` data-alloc-parent="${i}"` : parentOf.has(i) ? ` data-alloc-child="${parentOf.get(i)}"` : "",
+      mark: (i) => (hasKids.has(i) ? `<span class="alloc-fold" aria-hidden="true"></span>` : ""),
+    };
+  }
+
   function allocTable(allRows: AllocationRow[]): string {
     const rows = allRows.filter((r) => r.level === 0 || (!isAllocRowEmpty(r) && !ALLOC_HIDDEN_CORPS.includes(r.label)));
     let html =
@@ -1144,10 +1175,11 @@ export function initDashboard(data: DashboardData): () => void {
       `<tr><th class="alloc-humax-col">합계</th><th>STB</th><th>Mobility</th><th>EVCS(국내)</th><th>EVCS(해외)</th><th>Humax(공통)</th>` +
       `<th class="alloc-shared-col">합계</th><th>H.Mobility</th><th>H.EV</th><th>하이파킹</th><th>피플카</th><th>위너콤</th><th>홀딩스</th><th>H.Networks</th></tr>` +
       `</thead><tbody>`;
-    rows.forEach((r) => {
+    const fold = allocToggleMarks(rows);
+    rows.forEach((r, i) => {
       const rowClass = r.level === 0 ? "tot" : r.level === 1 ? "alloc-l1" : "alloc-l2";
       html +=
-        `<tr class="${rowClass}"><td class="alloc-sticky">${r.label}</td><td class="alloc-tot-col">${money(r.grandTotal)}</td>` +
+        `<tr class="${rowClass}"${fold.attr(i)}><td class="alloc-sticky">${fold.mark(i)}${r.label}</td><td class="alloc-tot-col">${money(r.grandTotal)}</td>` +
         `<td class="alloc-humax-col">${money(r.humaxTotal)}</td><td>${money(r.stb)}</td><td>${money(r.mobility)}</td><td>${money(r.evcsDomestic)}</td><td>${money(r.evcsOverseas)}</td><td>${money(r.humaxCommon)}</td>` +
         `<td class="alloc-bldg-col">${money(r.building)}</td><td class="alloc-shared-col">${money(r.sharedTotal)}</td>` +
         `<td>${money(r.hMobility)}</td><td>${money(r.hEv)}</td><td>${money(r.hiparking)}</td><td>${money(r.peoplecar)}</td><td>${money(r.winercom)}</td><td>${money(r.holdings)}</td><td>${money(r.hNetworks)}</td></tr>`;
@@ -1236,7 +1268,8 @@ export function initDashboard(data: DashboardData): () => void {
       `<tr><th class="alloc-humax-col">합계</th><th>STB</th><th>Mobility</th><th>EVCS(국내)</th><th>EVCS(해외)</th><th>Humax(공통)</th>` +
       `<th class="alloc-shared-col">합계</th><th>H.Mobility</th><th>H.EV</th><th>하이파킹</th><th>피플카</th><th>위너콤</th><th>홀딩스</th><th>H.Networks</th></tr>` +
       `</thead><tbody>`;
-    pairs.forEach(({ a, b }) => {
+    const fold = allocToggleMarks(pairs.map(({ a }) => a));
+    pairs.forEach(({ a, b }, i) => {
       const d = diffOf(a, b);
       const accMap = accountDiffMap(a, b);
       const cell = (v: number, fields: (keyof AllocValues13)[], extraClass = ""): string => {
@@ -1249,7 +1282,7 @@ export function initDashboard(data: DashboardData): () => void {
       const rowClass = a.level === 0 ? "tot" : a.level === 1 ? "alloc-l1" : "alloc-l2";
       const rateCell = `<td class="badge-cell">${rateBadgeCell(rateOf(a.grandTotal, b.grandTotal))}</td>`;
       html +=
-        `<tr class="${rowClass}"><td class="alloc-sticky">${a.label}</td>` +
+        `<tr class="${rowClass}"${fold.attr(i)}><td class="alloc-sticky">${fold.mark(i)}${a.label}</td>` +
         `${cell(d.grandTotal, ALLOC_FIELDS, "alloc-tot-col")}${rateCell}` +
         `${cell(d.humaxTotal, ["stb", "mobility", "evcsDomestic", "evcsOverseas", "humaxCommon"], "alloc-humax-col")}` +
         `${cell(d.stb, ["stb"])}${cell(d.mobility, ["mobility"])}${cell(d.evcsDomestic, ["evcsDomestic"])}${cell(d.evcsOverseas, ["evcsOverseas"])}${cell(d.humaxCommon, ["humaxCommon"])}` +
@@ -1886,6 +1919,7 @@ export function initDashboard(data: DashboardData): () => void {
   renderAll();
 
   return () => {
+    document.removeEventListener("click", onAllocFoldClick);
     monthSelect?.removeEventListener("change", onMonthChange);
     modeToggle?.removeEventListener("click", onModeToggleClick);
     tabEls.forEach((t) => t.removeEventListener("click", onTabClick));
