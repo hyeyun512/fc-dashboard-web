@@ -224,7 +224,7 @@ export async function GET() {
   ws.getCell(1, 1).font = f({ bold: true, size: 13, color: { argb: NAVY } });
   ws.getRow(1).height = 24;
   ws.getCell(2, 1).value = "(단위: 백만원)";
-  ws.getCell(2, 1).font = f({ bold: true, color: { argb: INK } });
+  ws.getCell(2, 1).font = f({ color: { argb: INK } });
   ws.getCell(2, 1).alignment = { horizontal: "left", vertical: "bottom" };
   ws.getRow(2).height = 16;
 
@@ -334,7 +334,7 @@ export async function GET() {
     sh.getCell(1, 1).font = f({ bold: true, size: 13, color: { argb: NAVY } });
     sh.getRow(1).height = 24;
     sh.getCell(2, 1).value = "(단위: 백만원)";
-    sh.getCell(2, 1).font = f({ bold: true, color: { argb: INK } });
+    sh.getCell(2, 1).font = f({ color: { argb: INK } });
     sh.getCell(2, 1).alignment = { horizontal: "left", vertical: "bottom" };
     sh.getRow(2).height = 16;
 
@@ -688,7 +688,7 @@ export async function GET() {
         catRows.push(catRow);
       }
       if (hasOrg) {
-        ws.getCell(orgRow, 2).value = `${o.org} 합계`;
+        ws.getCell(orgRow, 2).value = o.org;
         ws.mergeCells(orgRow, 2, orgRow, 4);
         writeSum(orgRow, catRows);
         paint(orgRow, GRP_ORG, NAVY, 10);
@@ -699,7 +699,9 @@ export async function GET() {
         underUse.push(...catRows);
       }
     }
-    ws.getCell(useRow, 1).value = `${useName} 합계`;
+    // 보고용 이름 앞의 번호는 원장에서 차례를 잡으려고 붙은 것이라 보고서에는 적지 않는다
+    // (차례는 번호가 붙은 원래 이름으로 이미 잡혀 있다). '합계'는 본사·법인·총 합계에만 붙인다.
+    ws.getCell(useRow, 1).value = useName.replace(/^\d+\.\s*/, "");
     ws.mergeCells(useRow, 1, useRow, 4);
     writeSum(useRow, underUse);
     paint(useRow, GRP_USE, NAVY, 10.5);
