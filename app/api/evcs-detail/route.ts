@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import ExcelJS from "exceljs";
 import { getSupabaseAdmin } from "@/lib/supabaseAdmin";
 import { STAFF_USE, staffGroupOf, staffRank } from "@/lib/staffGroups";
+import { CORP_GROUPS, CORP_OTHER_LABEL } from "@/lib/corpGroups";
 
 /**
  * EVCS 사업부 상세를 엑셀 한 장으로 내려준다.
@@ -39,6 +40,17 @@ type Row = {
   evcs_domestic_krw: number | null;
   evcs_overseas_krw: number | null;
 };
+
+/**
+ * 법인 코드 -> 보고에 세우는 묶음 이름. 묶음·차례는 대시보드와 같되(HDG는 HUK에, 작은 법인은 '기타'),
+ * 이름은 대표 코드만 쓴다 — 대시보드는 'HUK(HDG포함)'이라 밝히지만 이 장은 'HUK'로 적는다.
+ */
+const CORP_LABEL_BY_CODE = new Map<string, string>(
+  CORP_GROUPS.flatMap((g) => g.codes.map((c) => [c, g.codes[0]] as const))
+);
+const CORP_RANK = new Map<string, number>(
+  [...CORP_GROUPS.map((g) => g.codes[0]), CORP_OTHER_LABEL].map((l, i) => [l, i])
+);
 
 const n = (v: number | null | undefined) => (v == null ? 0 : v);
 const monthNum = (m: string) => parseInt(m.replace(/\D/g, ""), 10) || 0;
@@ -84,8 +96,14 @@ export async function GET() {
   const SEP = "\u0001";
   /** 대조직은 Staff부문만 세운다. 나머지는 빈칸이라 같은 보고용·구분·대계정끼리 저절로 합쳐진다. */
   const orgOf = (r: Row) => (r.report_use_re === STAFF_USE ? staffGroupOf(r.large_org ?? "") : "");
+  /** 법인은 대시보드와 같은 묶음으로 세운다 — HDG는 HUK에 합쳐지고, 작은 법인은 '기타'로 모인다. */
+  const useOf = (r: Row) => {
+    const u = r.report_use_re ?? "";
+    if (r.hq_corp === "본사") return u;
+    return CORP_LABEL_BY_CODE.get(u) ?? CORP_OTHER_LABEL;
+  };
   const keyOf = (r: Row) =>
-    [r.hq_corp ?? "", r.report_use_re ?? "", orgOf(r), r.category ?? "", r.main_account_re ?? ""].join(SEP);
+    [r.hq_corp ?? "", useOf(r), orgOf(r), r.category ?? "", r.main_account_re ?? ""].join(SEP);
   const actMap = new Map<string, Map<string, Cell>>();
   const budMap = new Map<string, Map<string, Cell>>();
   const budYear = new Map<string, Cell>();
@@ -115,6 +133,8 @@ export async function GET() {
     const [hb, ub, ob, cb, mb] = parts(b);
     return (
       (isHq(a) ? 0 : 1) - (isHq(b) ? 0 : 1) ||
+      // 법인은 대시보드가 세운 차례(HUK(HDG포함) → … → HSZ → HBR → 기타)를 그대로 따른다.
+      (isHq(a) ? 0 : (CORP_RANK.get(ua) ?? 99) - (CORP_RANK.get(ub) ?? 99)) ||
       ua.localeCompare(ub, "ko") ||
       staffRank(oa) - staffRank(ob) ||
       oa.localeCompare(ob, "ko") ||
@@ -156,8 +176,8 @@ export async function GET() {
     thru?: number;   // 누계 블록이 몇 월까지인지
   };
   const monthBlock = (m: number): Block => ({ title: `${m}월`, bud: "예산", act: "실적", kind: "month", m });
-  const cumBlock = (m: number): Block => ({ title: `${m}월 누계`, bud: "누계 예산", act: "누계 실적", kind: "cum", thru: m });
-  const yearBlock: Block = { title: "연간", bud: "26BP 예산", act: `${lastMonth}월 누계 실적`, kind: "year" };
+  const cumBlock = (m: number): Block => ({ title: `${m}월 누계`, bud: "예산", act: "실적", kind: "cum", thru: m });
+  const yearBlock: Block = { title: "26년 연간", bud: "예산", act: "실적", kind: "year" };
   const blocks: Block[] = [...months.map((_, i) => monthBlock(i + 1)), cumBlock(lastMonth), yearBlock];
   const firstCol = KEY_COLS + 1;
   const lastCol = KEY_COLS + blocks.length * BLOCK;
@@ -167,7 +187,7 @@ export async function GET() {
   const f = (o: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: FONT, size: 10, ...o });
   const NAVY = "FF1E3A8A", INK = "FF1A202C";
   const HEAD_DARK = "FF1E3A8A", HEAD_MID = "FFDBEAFE", HEAD_SOFT = "FFEFF6FF";
-  const GRP_CAT = "FFF8FAFC", GRP_USE = "FFEFF6FF", GRP_HQ = "FFDBEAFE";
+  const GRP_CAT = "FFF8FAFC", GRP_ORG = "FFF2F7FE", GRP_USE = "FFEFF6FF", GRP_HQ = "FFDBEAFE";
   const thin = { style: "thin" as const, color: { argb: "FFD7DBE2" } };
   const hair = { style: "hair" as const, color: { argb: "FFEDF0F3" } };
   const edge = { style: "medium" as const, color: { argb: "FF9DB2CE" } };   // 월과 월 사이
@@ -290,10 +310,7 @@ export async function GET() {
       const c0 = sFirst + bi * SB;
       sh.getCell(sHR, c0).value = b.title;
       sh.mergeCells(sHR, c0, sHR, c0 + SB - 1);
-      // '26BP 예산'처럼 긴 머리글은 좁아진 칸에서 아무 데서나 접힌다('26BP 예'/'산').
-      // 마지막 띄어쓰기에서 끊어 두 줄로 세운다.
-      const head = (t: string) => t.replace(/ ([^ ]*)$/, "\n$1");
-      [head(b.bud), head(b.act), "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(sHR + 1, c0 + i).value = v));
+      [b.bud, b.act, "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(sHR + 1, c0 + i).value = v));
     });
     for (let r = sHR; r <= sHR + 1; r++) {
       for (let c = 1; c <= sLast; c++) {
@@ -307,8 +324,7 @@ export async function GET() {
       }
     }
     sh.getRow(sHR).height = 20;
-    // '26BP 예산', '8월 누계 실적' 같은 머리글은 좁아진 칸에서 두 줄로 접힌다 — 줄 높이를 그만큼 준다.
-    sh.getRow(sHR + 1).height = 30;
+    sh.getRow(sHR + 1).height = 18;
 
     // 구분별로 모은다 (본사/법인 × 구분).
     const sumBy = new Map<string, (b: Block) => Pair>();
@@ -554,12 +570,13 @@ export async function GET() {
 
   /**
    * 보고용 한 덩이. 합계 줄이 묶음 위에 서고, 그 아래로 한 단씩 내려간다 —
-   *   보고용 합계 → 구분 줄 → 대계정 상세
+   *   보고용 합계 → (대조직 합계) → 구분 줄 → 대계정 상세
    * 엑셀 개요도 summaryBelow=false로 맞춰 두어 +/- 단추가 합계 줄에 붙는다.
    *
-   * 파일은 2단계(상세가 접힌 모습)로 열리므로 접었을 때 보이는 줄은 구분 줄뿐이다.
-   * 그래서 대조직도 구분 줄에 적는다 — 한 보고용 안에 '지급수수료'가 대조직만 달리해
-   * 두 번 나오는 일이 있어서, 이게 없으면 접은 화면에서 둘을 구별할 수 없다.
+   * 대조직 단은 Staff부문에만 선다. 나머지 보고용은 대조직이 없으므로 보고용 합계가 구분 줄을
+   * 바로 더하고, 그만큼 접기 단계도 한 단 얕다.
+   *
+   * 파일은 대계정 상세만 접힌 채로 열린다.
    */
   function writeUseBlock(u: string) {
     const ks = byUse.get(u)!;
@@ -579,33 +596,54 @@ export async function GET() {
       groups.push({ org, cat, ks: g });
     }
 
-    const useRow = row++;
-    const catRows: number[] = [];
-    let prevOrg = "";
+    // 대조직이 있는 보고용(Staff부문)은 대조직마다 한 번 더 묶는다.
+    const byOrg: { org: string; groups: typeof groups }[] = [];
     for (const g of groups) {
-      const catRow = row++;
-      const detailRows: number[] = [];
-      for (const k of g.ks) {
-        ws.getCell(row, 4).value = parts(k)[4];
-        writeNumbers(row, dataOf(k));
-        ws.getRow(row).outlineLevel = 2;
-        ws.getRow(row).hidden = true;   // 2단계로 접힌 채 열린다
-        setCollapsed(row, false);
-        detailRows.push(row);
-        row++;
+      const last = byOrg[byOrg.length - 1];
+      if (last && last.org === g.org) last.groups.push(g);
+      else byOrg.push({ org: g.org, groups: [g] });
+    }
+
+    const useRow = row++;
+    const underUse: number[] = [];   // 보고용 합계가 더할 줄들
+    for (const o of byOrg) {
+      const hasOrg = o.org !== "";
+      const orgRow = hasOrg ? row++ : 0;
+      const catRows: number[] = [];
+      for (const g of o.groups) {
+        const catRow = row++;
+        const detailRows: number[] = [];
+        for (const k of g.ks) {
+          ws.getCell(row, 4).value = parts(k)[4];
+          writeNumbers(row, dataOf(k));
+          ws.getRow(row).outlineLevel = hasOrg ? 3 : 2;
+          ws.getRow(row).hidden = true;   // 상세는 접힌 채로 열린다
+          setCollapsed(row, false);
+          detailRows.push(row);
+          row++;
+        }
+        ws.getCell(catRow, 4).value = g.cat;
+        writeSum(catRow, detailRows);
+        paint(catRow, GRP_CAT, INK, 10);
+        ws.getRow(catRow).outlineLevel = hasOrg ? 2 : 1;
+        setCollapsed(catRow, true);
+        catRows.push(catRow);
       }
-      if (g.org !== prevOrg) ws.getCell(catRow, 2).value = g.org;
-      prevOrg = g.org;
-      ws.getCell(catRow, 4).value = g.cat;
-      writeSum(catRow, detailRows);
-      paint(catRow, GRP_CAT, INK, 10);
-      ws.getRow(catRow).outlineLevel = 1;
-      setCollapsed(catRow, true);
-      catRows.push(catRow);
+      if (hasOrg) {
+        ws.getCell(orgRow, 2).value = `${o.org} 합계`;
+        ws.mergeCells(orgRow, 2, orgRow, 4);
+        writeSum(orgRow, catRows);
+        paint(orgRow, GRP_ORG, NAVY, 10);
+        ws.getRow(orgRow).outlineLevel = 1;
+        setCollapsed(orgRow, false);
+        underUse.push(orgRow);
+      } else {
+        underUse.push(...catRows);
+      }
     }
     ws.getCell(useRow, 1).value = `${useName} 합계`;
     ws.mergeCells(useRow, 1, useRow, 4);
-    writeSum(useRow, catRows);
+    writeSum(useRow, underUse);
     paint(useRow, GRP_USE, NAVY, 10.5);
     useRowsOf[hq === "본사" ? "본사" : "법인"].push(useRow);
   }
@@ -670,7 +708,7 @@ export async function GET() {
     Object.defineProperty(col, "collapsed", { value: !grouped && (off === 2 || off === 5), configurable: true });
   }
   ws.properties.outlineLevelCol = 1;
-  ws.properties.outlineLevelRow = 2;
+  ws.properties.outlineLevelRow = 3;   // Staff부문은 대조직 단이 하나 더 있다
 
   // ── 요약 맨 아래 검토 줄 ────────────────────────────────────────────────────
   // 요약의 Total이 팀별의 '총 합계'와 맞는지 엑셀이 직접 보게 한다. 두 장은 묶는 단위가 달라
@@ -719,16 +757,15 @@ export async function GET() {
       formula: `IF(SUMPRODUCT(ABS(${S(sKey + 1)}${aRow}:${S(sLast)}${aRow}))=0,"일치","불일치")`,
       result: worst === 0 ? "일치" : "불일치",
     };
+    // 표와 떨어진 검토용 줄이라 월 경계선은 긋지 않는다 — 한 줄로 이어 보이는 쪽이 읽기 쉽다.
     for (let c = 1; c <= sLast; c++) {
       const cell = sh.getCell(aRow, c);
-      cell.fill = fill("FFFFF4D6");
+      cell.fill = fill("FFFFFAEB");
       cell.font = f({ bold: true, color: { argb: INK } });
       cell.alignment = { horizontal: c <= sKey ? "left" : "right", vertical: "middle" };
       if (c > sKey) cell.numFmt = "0;[Red]-0;0";
-      cell.border = { top: thin, bottom: thin, left: c === 1 || (c - sFirst) % SB === 0 ? edge : hair, right: c === sLast ? edge : hair };
+      cell.border = { top: thin, bottom: thin, left: hair, right: hair };
     }
-    sh.getCell(aRow + 1, 1).value = "※ 요약 Total − 팀별 '총 합계' (백만원). 모두 0이면 두 장의 숫자가 같다.";
-    sh.getCell(aRow + 1, 1).font = f({ size: 9, italic: true, color: { argb: "FF6B7280" } });
   }
 
   const buf = await wb.xlsx.writeBuffer();
