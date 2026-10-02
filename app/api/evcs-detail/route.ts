@@ -177,10 +177,27 @@ export async function GET() {
   };
   const monthBlock = (m: number): Block => ({ title: `${m}월`, bud: "예산", act: "실적", kind: "month", m });
   const cumBlock = (m: number): Block => ({ title: `${m}월 누계`, bud: "예산", act: "실적", kind: "cum", thru: m });
-  const yearBlock: Block = { title: "26년 연간", bud: "예산", act: "실적", kind: "year" };
+  const yearBlock: Block = { title: "26년BP", bud: "예산", act: "실적", kind: "year" };
   const blocks: Block[] = [...months.map((_, i) => monthBlock(i + 1)), cumBlock(lastMonth), yearBlock];
   const firstCol = KEY_COLS + 1;
-  const lastCol = KEY_COLS + blocks.length * BLOCK;
+
+  /**
+   * 연간은 '26년BP' 한 칸뿐이다 — 견줄 상대가 없으니 실적·차이·집행률 자리를 두지 않는다.
+   * 그래서 블록마다 폭이 달라, 시작 열과 블록 안 자리를 미리 표로 잡아 둔다.
+   */
+  const widthOf = (b: Block) => (b.kind === "year" ? 1 : BLOCK);
+  const colOf: number[] = [];
+  const blockAt: number[] = [];   // 열 -> 블록 번호
+  const offAt: number[] = [];     // 열 -> 블록 안 자리
+  {
+    let c = firstCol;
+    blocks.forEach((b, bi) => {
+      colOf.push(c);
+      for (let i = 0; i < widthOf(b); i++) { blockAt[c] = bi; offAt[c] = i; c++; }
+    });
+  }
+  const lastCol = colOf[colOf.length - 1] + widthOf(blocks[blocks.length - 1]) - 1;
+  const isLastOf = (c: number) => offAt[c] === widthOf(blocks[blockAt[c]]) - 1;
   const L = (c: number) => ws.getColumn(c).letter;
 
   const FONT = "나눔고딕";
@@ -218,7 +235,13 @@ export async function GET() {
     ws.mergeCells(HR, i + 1, HR + 2, i + 1);
   });
   blocks.forEach((b, bi) => {
-    const c0 = firstCol + bi * BLOCK;
+    const c0 = colOf[bi];
+    if (b.kind === "year") {
+      // 한 칸짜리 블록 — 이름을 세 줄에 걸쳐 세운다.
+      ws.getCell(HR, c0).value = b.title;
+      ws.mergeCells(HR, c0, HR + 2, c0);
+      return;
+    }
     ws.getCell(HR, c0).value = b.title;
     ws.mergeCells(HR, c0, HR, c0 + BLOCK - 1);
     ws.getCell(HR + 1, c0).value = b.bud;
@@ -234,16 +257,16 @@ export async function GET() {
   for (let r = HR; r <= HR + 2; r++) {
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c);
-      const dark = r === HR || c <= KEY_COLS;
+      const dark = r === HR || c <= KEY_COLS || blocks[blockAt[c]]?.kind === "year";
       cell.font = f({ bold: true, color: { argb: dark ? "FFFFFFFF" : NAVY } });
       cell.fill = fill(dark ? HEAD_DARK : r === HR + 1 ? HEAD_MID : HEAD_SOFT);
       cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-      const off = c <= KEY_COLS ? -1 : (c - firstCol) % BLOCK;
+      const off = c <= KEY_COLS ? -1 : offAt[c];
       cell.border = {
         top: thin,
         bottom: thin,
         left: off === 0 || c === 1 ? edge : thin,
-        right: off === BLOCK - 1 || c === KEY_COLS ? edge : thin,
+        right: (c > KEY_COLS && isLastOf(c)) || c === KEY_COLS ? edge : thin,
       };
     }
   }
@@ -272,7 +295,7 @@ export async function GET() {
 
   // 요약 장을 다 그린 뒤, 팀별 장의 '총 합계'가 정해지면 맨 아래에 검토 줄을 붙인다.
   let audit: {
-    blocks: Block[]; first: number; SB: number; key: number; last: number; totalRow: number; vals: { b: number; a: number }[];
+    blocks: Block[]; cols: number[]; key: number; last: number; totalRow: number; vals: { b: number; a: number }[];
   } | null = null;
 
   // ── 요약 시트 ───────────────────────────────────────────────────────────────
@@ -290,7 +313,20 @@ export async function GET() {
       if (m >= 2) sBlocks.push(cumBlock(m));
     }
     sBlocks.push(yearBlock);
-    const sLast = sKey + sBlocks.length * SB;
+    // 연간은 '26년BP' 한 칸뿐 — 팀별과 같은 이유로 블록마다 폭이 다르다.
+    const sWidthOf = (b: Block) => (b.kind === "year" ? 1 : SB);
+    const sColOf: number[] = [];
+    const sBlockAt: number[] = [];
+    const sOffAt: number[] = [];
+    {
+      let c = sFirst;
+      sBlocks.forEach((b, bi) => {
+        sColOf.push(c);
+        for (let i = 0; i < sWidthOf(b); i++) { sBlockAt[c] = bi; sOffAt[c] = i; c++; }
+      });
+    }
+    const sLast = sColOf[sColOf.length - 1] + sWidthOf(sBlocks[sBlocks.length - 1]) - 1;
+    const sIsLastOf = (c: number) => sOffAt[c] === sWidthOf(sBlocks[sBlockAt[c]]) - 1;
     const S = (c: number) => sh.getColumn(c).letter;
 
     // 제목은 병합하지 않고 흘려 둔다 — 병합하면 두 칸 폭에 갇혀 글자가 잘린다.
@@ -307,20 +343,21 @@ export async function GET() {
       sh.mergeCells(sHR, i + 1, sHR + 1, i + 1);
     });
     sBlocks.forEach((b, bi) => {
-      const c0 = sFirst + bi * SB;
+      const c0 = sColOf[bi];
       sh.getCell(sHR, c0).value = b.title;
+      if (b.kind === "year") { sh.mergeCells(sHR, c0, sHR + 1, c0); return; }
       sh.mergeCells(sHR, c0, sHR, c0 + SB - 1);
       [b.bud, b.act, "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(sHR + 1, c0 + i).value = v));
     });
     for (let r = sHR; r <= sHR + 1; r++) {
       for (let c = 1; c <= sLast; c++) {
         const cell = sh.getCell(r, c);
-        const dark = r === sHR || c <= sKey;
+        const dark = r === sHR || c <= sKey || sBlocks[sBlockAt[c]]?.kind === "year";
         cell.font = f({ bold: true, color: { argb: dark ? "FFFFFFFF" : NAVY } });
         cell.fill = fill(dark ? HEAD_DARK : HEAD_MID);
         cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-        const off = c <= sKey ? -1 : (c - sFirst) % SB;
-        cell.border = { top: thin, bottom: thin, left: off === 0 || c === 1 ? edge : thin, right: off === SB - 1 || c === sKey ? edge : thin };
+        const off = c <= sKey ? -1 : sOffAt[c];
+        cell.border = { top: thin, bottom: thin, left: off === 0 || c === 1 ? edge : thin, right: (c > sKey && sIsLastOf(c)) || c === sKey ? edge : thin };
       }
     }
     sh.getRow(sHR).height = 20;
@@ -372,12 +409,14 @@ export async function GET() {
         const get = sumBy.get(hq + SEP + cat)!;
         const rv: Duo[] = [];
         sBlocks.forEach((b, bi) => {
-          const c0 = sFirst + bi * SB;
+          const c0 = sColOf[bi];
           const v = get(b);
           const d: Duo = { b: Math.round(v.bud.dom + v.bud.ovs), a: Math.round(v.act.dom + v.act.ovs) };
           sh.getCell(sr, c0).value = d.b;
-          sh.getCell(sr, c0 + 1).value = d.a;
-          sDerive(sr, c0, d);
+          if (b.kind !== "year") {
+            sh.getCell(sr, c0 + 1).value = d.a;
+            sDerive(sr, c0, d);
+          }
           rv.push(d);   // 구성비는 Total 줄이 정해진 뒤에 채운다
         });
         sVals.set(sr, rv);
@@ -387,17 +426,18 @@ export async function GET() {
       sh.getCell(sr, 1).value = hq;
       sh.getCell(sr, 2).value = "S-T";
       const stVals: Duo[] = [];
-      sBlocks.forEach((_, bi) => {
-        const c0 = sFirst + bi * SB;
+      sBlocks.forEach((b, bi) => {
+        const c0 = sColOf[bi];
         const d: Duo = { b: 0, a: 0 };
         for (const r of rowsHere) { d.b += sVals.get(r)![bi].b; d.a += sVals.get(r)![bi].a; }
-        ([[0, "b"], [1, "a"]] as const).forEach(([off, key]) => {
+        const offs = b.kind === "year" ? ([[0, "b"]] as const) : ([[0, "b"], [1, "a"]] as const);
+        offs.forEach(([off, key]) => {
           sh.getCell(sr, c0 + off).value = {
             formula: `SUM(${rowsHere.map((r) => `${S(c0 + off)}${r}`).join(",")})`,
             result: d[key],
           };
         });
-        sDerive(sr, c0, d);
+        if (b.kind !== "year") sDerive(sr, c0, d);
         stVals.push(d);
       });
       sVals.set(sr, stVals);
@@ -412,21 +452,24 @@ export async function GET() {
     sh.getCell(totalRow, 1).value = "Total";
     sh.mergeCells(totalRow, 1, totalRow, 2);
     const totVals: Duo[] = [];
-    sBlocks.forEach((_, bi) => {
-      const c0 = sFirst + bi * SB;
+    sBlocks.forEach((b, bi) => {
+      const c0 = sColOf[bi];
       const d: Duo = { b: 0, a: 0 };
       for (const r of subRows) { d.b += sVals.get(r)![bi].b; d.a += sVals.get(r)![bi].a; }
-      ([[0, "b"], [1, "a"]] as const).forEach(([off, key]) => {
+      const offs = b.kind === "year" ? ([[0, "b"]] as const) : ([[0, "b"], [1, "a"]] as const);
+      offs.forEach(([off, key]) => {
         sh.getCell(totalRow, c0 + off).value = {
           formula: `SUM(${subRows.map((r) => `${S(c0 + off)}${r}`).join(",")})`,
           result: d[key],
         };
       });
-      sDerive(totalRow, c0, d);
-      sh.getCell(totalRow, c0 + 4).value = {
-        formula: `IF(${S(c0 + 1)}${totalRow}=0,"",1)`,
-        result: d.a === 0 ? "" : 1,
-      };
+      if (b.kind !== "year") {
+        sDerive(totalRow, c0, d);
+        sh.getCell(totalRow, c0 + 4).value = {
+          formula: `IF(${S(c0 + 1)}${totalRow}=0,"",1)`,
+          result: d.a === 0 ? "" : 1,
+        };
+      }
       totVals.push(d);
     });
     sVals.set(totalRow, totVals);
@@ -436,8 +479,9 @@ export async function GET() {
     }
     // 구성비 — 그 줄의 실적이 Total 실적에서 차지하는 몫.
     for (let r = sHR + 2; r < totalRow; r++) {
-      sBlocks.forEach((_, bi) => {
-        const c0 = sFirst + bi * SB;
+      sBlocks.forEach((b, bi) => {
+        if (b.kind === "year") return;   // 연간은 '26년BP' 한 칸뿐이라 구성비 자리가 없다
+        const c0 = sColOf[bi];
         const tot = totVals[bi].a;
         sh.getCell(r, c0 + 4).value = {
           formula: `IF(${S(c0 + 1)}$${totalRow}=0,"",${S(c0 + 1)}${r}/${S(c0 + 1)}$${totalRow})`,
@@ -454,10 +498,10 @@ export async function GET() {
           cell.alignment = { horizontal: "left", vertical: "middle" };
           cell.border = { top: hair, bottom: hair, left: c === 1 ? edge : thin, right: c === sKey ? edge : thin };
         } else {
-          const off = (c - sFirst) % SB;
+          const off = sOffAt[c];
           cell.numFmt = off === 3 || off === 4 ? PCT : NUM;
           cell.alignment = { horizontal: "right", vertical: "middle" };
-          cell.border = { top: hair, bottom: hair, left: off === 0 ? edge : hair, right: off === SB - 1 ? edge : hair };
+          cell.border = { top: hair, bottom: hair, left: off === 0 ? edge : hair, right: sIsLastOf(c) ? edge : hair };
         }
       }
     }
@@ -465,7 +509,7 @@ export async function GET() {
     sh.getColumn(2).width = 9.2;
     for (let c = sFirst; c <= sLast; c++) sh.getColumn(c).width = 9;
     // 보고월·보고월 누계·연간만 남기고 앞의 달들은 접어 둔다 — 필요하면 +를 눌러 펼친다.
-    const openFrom = sFirst + sBlocks.findIndex((b) => b.kind === "month" && b.m === lastMonth) * SB;
+    const openFrom = sColOf[sBlocks.findIndex((b) => b.kind === "month" && b.m === lastMonth)];
     for (let c = sFirst; c < openFrom; c++) {
       const col = sh.getColumn(c);
       col.outlineLevel = 1;
@@ -476,7 +520,7 @@ export async function GET() {
     sh.properties.outlineLevelCol = 1;
     sh.views = [{ state: "frozen", xSplit: 2, ySplit: sHR + 1 }];
 
-    audit = { blocks: sBlocks, first: sFirst, SB, key: sKey, last: sLast, totalRow, vals: totVals };
+    audit = { blocks: sBlocks, cols: sColOf, key: sKey, last: sLast, totalRow, vals: totVals };
   }
 
   /**
@@ -497,21 +541,25 @@ export async function GET() {
       result: bt === 0 ? "" : at / bt,
     };
   }
-  /** 상세 줄 — 국내·해외만 값이고 나머지는 수식. */
+  /** 상세 줄 — 국내·해외만 값이고 나머지는 수식. 연간은 한 칸이라 예산 합만 적는다. */
   function writeNumbers(row: number, get: (b: Block) => Pair) {
     const rv: Quad[] = [];
     blocks.forEach((b, bi) => {
-      const c0 = firstCol + bi * BLOCK;
+      const c0 = colOf[bi];
       const p = get(b);
       const v: Quad = {
         bd: Math.round(p.bud.dom), bo: Math.round(p.bud.ovs),
         ad: Math.round(p.act.dom), ao: Math.round(p.act.ovs),
       };
-      ws.getCell(row, c0).value = v.bd;
-      ws.getCell(row, c0 + 1).value = v.bo;
-      ws.getCell(row, c0 + 3).value = v.ad;
-      ws.getCell(row, c0 + 4).value = v.ao;
-      derive(row, c0, v);
+      if (b.kind === "year") {
+        ws.getCell(row, c0).value = v.bd + v.bo;
+      } else {
+        ws.getCell(row, c0).value = v.bd;
+        ws.getCell(row, c0 + 1).value = v.bo;
+        ws.getCell(row, c0 + 3).value = v.ad;
+        ws.getCell(row, c0 + 4).value = v.ao;
+        derive(row, c0, v);
+      }
       rv.push(v);
     });
     rowVals.set(row, rv);
@@ -519,12 +567,21 @@ export async function GET() {
   /** 합계 줄 — 국내·해외는 아래 줄들을 더하고 나머지는 같은 수식. */
   function writeSum(row: number, srcRows: number[]) {
     const rv: Quad[] = [];
-    blocks.forEach((_, bi) => {
-      const c0 = firstCol + bi * BLOCK;
+    blocks.forEach((b, bi) => {
+      const c0 = colOf[bi];
       const v: Quad = { bd: 0, bo: 0, ad: 0, ao: 0 };
       for (const r of srcRows) {
         const q = rowVals.get(r)![bi];
         v.bd += q.bd; v.bo += q.bo; v.ad += q.ad; v.ao += q.ao;
+      }
+      if (b.kind === "year") {
+        const col = L(c0);
+        ws.getCell(row, c0).value = {
+          formula: `SUM(${srcRows.map((r) => `${col}${r}`).join(",")})`,
+          result: v.bd + v.bo,
+        };
+        rv.push(v);
+        return;
       }
       ([[0, "bd"], [1, "bo"], [3, "ad"], [4, "ao"]] as const).forEach(([off, key]) => {
         const col = L(c0 + off);
@@ -675,7 +732,7 @@ export async function GET() {
         cell.alignment = { horizontal: "left", vertical: "middle", indent: c === 4 ? 1 : 0 };
         cell.border = { top: hair, bottom: hair, left: c === 1 ? edge : thin, right: c === KEY_COLS ? edge : thin };
       } else {
-        const off = (c - firstCol) % BLOCK;
+        const off = offAt[c];
         cell.numFmt = off === 7 ? PCT : NUM;
         cell.alignment = { horizontal: "right", vertical: "middle" };
         // 월과 월 사이는 굵게, 예산과 실적 사이는 가늘게 — 눈이 블록을 바로 가른다.
@@ -683,7 +740,7 @@ export async function GET() {
           top: hair,
           bottom: hair,
           left: off === 0 ? edge : off === 3 ? thin : hair,
-          right: off === BLOCK - 1 ? edge : hair,
+          right: isLastOf(c) ? edge : hair,
         };
       }
     }
@@ -698,7 +755,7 @@ export async function GET() {
   ws.getColumn(3).width = 5.5;
   ws.getColumn(4).width = 20;
   for (let c = firstCol; c <= lastCol; c++) {
-    const off = (c - firstCol) % BLOCK;
+    const off = offAt[c];
     const col = ws.getColumn(c);
     col.width = 9;
     // 국내·해외는 접은 채로 연다 — 펼치면 나뉜 금액이, 접으면 '계'만 보인다.
@@ -715,12 +772,13 @@ export async function GET() {
   // (요약은 구분까지, 팀별은 대계정까지) 원 단위로는 반올림 때문에 몇 원씩 어긋날 수 있으므로,
   // 보이는 그대로 백만원으로 반올림해 견준다. 모든 칸이 0이면 일치다.
   if (audit) {
-    const { blocks: sBlocks, first: sFirst, SB, key: sKey, last: sLast, totalRow } = audit;
+    const { blocks: sBlocks, cols: sColOf, key: sKey, last: sLast, totalRow } = audit;
     const S = (c: number) => sh.getColumn(c).letter;
     const aRow = totalRow + 2;
     /** 팀별 '총 합계' 줄에서 이 블록에 해당하는 칸들 (off 0=예산 계, 3=실적 계). */
     const teamRefs = (b: Block, off: number) => {
-      const at = (bi: number) => `'팀별'!${L(firstCol + bi * BLOCK + off + 2)}$${lastRow}`;
+      const at = (bi: number) =>
+        `'팀별'!${L(blocks[bi].kind === "year" ? colOf[bi] : colOf[bi] + off + 2)}$${lastRow}`;
       if (b.kind === "month") return [at(b.m! - 1)];
       if (b.kind === "year") return [at(blocks.length - 1)];
       return Array.from({ length: b.thru! }, (_, i) => at(i));
@@ -742,8 +800,9 @@ export async function GET() {
     sh.getCell(aRow, 1).value = "검토";
     let worst = 0;
     sBlocks.forEach((b, bi) => {
-      const c0 = sFirst + bi * SB;
-      for (const off of [0, 1]) {
+      const c0 = sColOf[bi];
+      // 연간은 '26년BP' 한 칸뿐이라 예산만 견준다.
+      for (const off of b.kind === "year" ? [0] : [0, 1]) {
         const team = teamRefs(b, off === 0 ? 0 : 3);
         const diff = mil(audit.vals[bi][off === 0 ? "b" : "a"]) - mil(teamValue(b, off === 0 ? 0 : 3));
         worst = Math.max(worst, Math.abs(diff));
