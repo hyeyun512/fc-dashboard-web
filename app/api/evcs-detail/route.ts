@@ -121,6 +121,10 @@ export async function GET() {
   // ── 엑셀 틀 ─────────────────────────────────────────────────────────────────
   const wb = new ExcelJS.Workbook();
   wb.creator = "고정비 실적 대시보드";
+  // 제한된 보기에서는 엑셀이 수식을 계산하지 않고 파일에 담긴 값만 보여 준다 — 값을 같이
+  // 저장하지 않으면 '편집 사용'을 누르기 전까지 표가 텅 비어 보인다. 편집을 켜면 아래 설정으로
+  // 전체를 다시 계산하므로, 담아 둔 값이 낡을 일도 없다.
+  wb.calcProperties.fullCalcOnLoad = true;
   // 시트 차례 — 요약이 먼저, 상세(팀별)가 뒤. 요약 탭은 빨갛게 칠해 눈에 먼저 띄게 한다.
   const sh = wb.addWorksheet("요약", {
     properties: { tabColor: { argb: "FFD93025" } },
@@ -239,7 +243,9 @@ export async function GET() {
   };
 
   // 요약 장을 다 그린 뒤, 팀별 장의 '총 합계'가 정해지면 맨 아래에 검토 줄을 붙인다.
-  let audit: { blocks: Block[]; first: number; SB: number; key: number; last: number; totalRow: number } | null = null;
+  let audit: {
+    blocks: Block[]; first: number; SB: number; key: number; last: number; totalRow: number; vals: { b: number; a: number }[];
+  } | null = null;
 
   // ── 요약 시트 ───────────────────────────────────────────────────────────────
   // 본사·법인을 구분(인건비…기타)으로만 접은 한 장. 팀별 시트가 '어디서 썼나'라면
@@ -316,6 +322,17 @@ export async function GET() {
       }
     }
 
+    // 팀별과 같은 이유로, 요약도 수식마다 결과를 함께 담는다(제한된 보기 대비).
+    type Duo = { b: number; a: number };
+    const sVals = new Map<number, Duo[]>();
+    const sDerive = (r: number, c0: number, d: Duo) => {
+      sh.getCell(r, c0 + 2).value = { formula: `${S(c0 + 1)}${r}-${S(c0)}${r}`, result: d.a - d.b };
+      sh.getCell(r, c0 + 3).value = {
+        formula: `IF(${S(c0)}${r}=0,"",${S(c0 + 1)}${r}/${S(c0)}${r})`,
+        result: d.b === 0 ? "" : d.a / d.b,
+      };
+    };
+
     let sr = sHR + 2;
     const subRows: number[] = [];
     for (const hq of ["본사", "법인"]) {
@@ -325,28 +342,37 @@ export async function GET() {
         if (i === 0) sh.getCell(sr, 1).value = hq;
         sh.getCell(sr, 2).value = cat;
         const get = sumBy.get(hq + SEP + cat)!;
+        const rv: Duo[] = [];
         sBlocks.forEach((b, bi) => {
           const c0 = sFirst + bi * SB;
           const v = get(b);
-          sh.getCell(sr, c0).value = Math.round(v.bud.dom + v.bud.ovs);
-          sh.getCell(sr, c0 + 1).value = Math.round(v.act.dom + v.act.ovs);
-          sh.getCell(sr, c0 + 2).value = { formula: `${S(c0 + 1)}${sr}-${S(c0)}${sr}` };
-          sh.getCell(sr, c0 + 3).value = { formula: `IF(${S(c0)}${sr}=0,"",${S(c0 + 1)}${sr}/${S(c0)}${sr})` };
-          // 구성비는 Total 줄이 정해진 뒤에 채운다.
+          const d: Duo = { b: Math.round(v.bud.dom + v.bud.ovs), a: Math.round(v.act.dom + v.act.ovs) };
+          sh.getCell(sr, c0).value = d.b;
+          sh.getCell(sr, c0 + 1).value = d.a;
+          sDerive(sr, c0, d);
+          rv.push(d);   // 구성비는 Total 줄이 정해진 뒤에 채운다
         });
+        sVals.set(sr, rv);
         rowsHere.push(sr);
         sr++;
       });
       sh.getCell(sr, 1).value = hq;
       sh.getCell(sr, 2).value = "S-T";
+      const stVals: Duo[] = [];
       sBlocks.forEach((_, bi) => {
         const c0 = sFirst + bi * SB;
-        for (const off of [0, 1]) {
-          sh.getCell(sr, c0 + off).value = { formula: `SUM(${rowsHere.map((r) => `${S(c0 + off)}${r}`).join(",")})` };
-        }
-        sh.getCell(sr, c0 + 2).value = { formula: `${S(c0 + 1)}${sr}-${S(c0)}${sr}` };
-        sh.getCell(sr, c0 + 3).value = { formula: `IF(${S(c0)}${sr}=0,"",${S(c0 + 1)}${sr}/${S(c0)}${sr})` };
+        const d: Duo = { b: 0, a: 0 };
+        for (const r of rowsHere) { d.b += sVals.get(r)![bi].b; d.a += sVals.get(r)![bi].a; }
+        ([[0, "b"], [1, "a"]] as const).forEach(([off, key]) => {
+          sh.getCell(sr, c0 + off).value = {
+            formula: `SUM(${rowsHere.map((r) => `${S(c0 + off)}${r}`).join(",")})`,
+            result: d[key],
+          };
+        });
+        sDerive(sr, c0, d);
+        stVals.push(d);
       });
+      sVals.set(sr, stVals);
       for (let c = 1; c <= sLast; c++) {
         sh.getCell(sr, c).fill = fill(GRP_USE);
         sh.getCell(sr, c).font = f({ bold: true, color: { argb: NAVY } });
@@ -357,15 +383,25 @@ export async function GET() {
     const totalRow = sr;
     sh.getCell(totalRow, 1).value = "Total";
     sh.mergeCells(totalRow, 1, totalRow, 2);
+    const totVals: Duo[] = [];
     sBlocks.forEach((_, bi) => {
       const c0 = sFirst + bi * SB;
-      for (const off of [0, 1]) {
-        sh.getCell(totalRow, c0 + off).value = { formula: `SUM(${subRows.map((r) => `${S(c0 + off)}${r}`).join(",")})` };
-      }
-      sh.getCell(totalRow, c0 + 2).value = { formula: `${S(c0 + 1)}${totalRow}-${S(c0)}${totalRow}` };
-      sh.getCell(totalRow, c0 + 3).value = { formula: `IF(${S(c0)}${totalRow}=0,"",${S(c0 + 1)}${totalRow}/${S(c0)}${totalRow})` };
-      sh.getCell(totalRow, c0 + 4).value = { formula: `IF(${S(c0 + 1)}${totalRow}=0,"",1)` };
+      const d: Duo = { b: 0, a: 0 };
+      for (const r of subRows) { d.b += sVals.get(r)![bi].b; d.a += sVals.get(r)![bi].a; }
+      ([[0, "b"], [1, "a"]] as const).forEach(([off, key]) => {
+        sh.getCell(totalRow, c0 + off).value = {
+          formula: `SUM(${subRows.map((r) => `${S(c0 + off)}${r}`).join(",")})`,
+          result: d[key],
+        };
+      });
+      sDerive(totalRow, c0, d);
+      sh.getCell(totalRow, c0 + 4).value = {
+        formula: `IF(${S(c0 + 1)}${totalRow}=0,"",1)`,
+        result: d.a === 0 ? "" : 1,
+      };
+      totVals.push(d);
     });
+    sVals.set(totalRow, totVals);
     for (let c = 1; c <= sLast; c++) {
       sh.getCell(totalRow, c).fill = fill(HEAD_DARK);
       sh.getCell(totalRow, c).font = f({ bold: true, size: 11, color: { argb: "FFFFFFFF" } });
@@ -374,8 +410,10 @@ export async function GET() {
     for (let r = sHR + 2; r < totalRow; r++) {
       sBlocks.forEach((_, bi) => {
         const c0 = sFirst + bi * SB;
+        const tot = totVals[bi].a;
         sh.getCell(r, c0 + 4).value = {
           formula: `IF(${S(c0 + 1)}$${totalRow}=0,"",${S(c0 + 1)}${r}/${S(c0 + 1)}$${totalRow})`,
+          result: tot === 0 ? "" : sVals.get(r)![bi].a / tot,
         };
       });
     }
@@ -407,42 +445,73 @@ export async function GET() {
       const col = sh.getColumn(c);
       col.outlineLevel = 1;
       col.hidden = true;
+      Object.defineProperty(col, "collapsed", { value: false, configurable: true });
     }
+    Object.defineProperty(sh.getColumn(openFrom), "collapsed", { value: true, configurable: true });
     sh.properties.outlineLevelCol = 1;
     sh.views = [{ state: "frozen", xSplit: 2, ySplit: sHR + 1 }];
 
-    audit = { blocks: sBlocks, first: sFirst, SB, key: sKey, last: sLast, totalRow };
+    audit = { blocks: sBlocks, first: sFirst, SB, key: sKey, last: sLast, totalRow, vals: totVals };
   }
 
+  /**
+   * 적어 넣은 숫자를 줄마다 기억해 둔다 — 수식에 담을 결과를 여기서 그대로 꺼내 쓴다.
+   * 엑셀이 더할 값은 '반올림해서 적은 값'이므로, 결과도 같은 값으로 더해야 어긋나지 않는다.
+   */
+  type Quad = { bd: number; bo: number; ad: number; ao: number };
+  const rowVals = new Map<number, Quad[]>();
+
   /** 한 블록에서 값이 아닌 칸(계·차이·집행률)을 수식으로 채운다. */
-  function derive(row: number, c0: number) {
-    ws.getCell(row, c0 + 2).value = { formula: `SUM(${L(c0)}${row}:${L(c0 + 1)}${row})` };
-    ws.getCell(row, c0 + 5).value = { formula: `SUM(${L(c0 + 3)}${row}:${L(c0 + 4)}${row})` };
-    ws.getCell(row, c0 + 6).value = { formula: `${L(c0 + 5)}${row}-${L(c0 + 2)}${row}` };
-    ws.getCell(row, c0 + 7).value = { formula: `IF(${L(c0 + 2)}${row}=0,"",${L(c0 + 5)}${row}/${L(c0 + 2)}${row})` };
+  function derive(row: number, c0: number, v: Quad) {
+    const bt = v.bd + v.bo, at = v.ad + v.ao;
+    ws.getCell(row, c0 + 2).value = { formula: `SUM(${L(c0)}${row}:${L(c0 + 1)}${row})`, result: bt };
+    ws.getCell(row, c0 + 5).value = { formula: `SUM(${L(c0 + 3)}${row}:${L(c0 + 4)}${row})`, result: at };
+    ws.getCell(row, c0 + 6).value = { formula: `${L(c0 + 5)}${row}-${L(c0 + 2)}${row}`, result: at - bt };
+    ws.getCell(row, c0 + 7).value = {
+      formula: `IF(${L(c0 + 2)}${row}=0,"",${L(c0 + 5)}${row}/${L(c0 + 2)}${row})`,
+      result: bt === 0 ? "" : at / bt,
+    };
   }
   /** 상세 줄 — 국내·해외만 값이고 나머지는 수식. */
   function writeNumbers(row: number, get: (b: Block) => Pair) {
+    const rv: Quad[] = [];
     blocks.forEach((b, bi) => {
       const c0 = firstCol + bi * BLOCK;
-      const v = get(b);
-      ws.getCell(row, c0).value = Math.round(v.bud.dom);
-      ws.getCell(row, c0 + 1).value = Math.round(v.bud.ovs);
-      ws.getCell(row, c0 + 3).value = Math.round(v.act.dom);
-      ws.getCell(row, c0 + 4).value = Math.round(v.act.ovs);
-      derive(row, c0);
+      const p = get(b);
+      const v: Quad = {
+        bd: Math.round(p.bud.dom), bo: Math.round(p.bud.ovs),
+        ad: Math.round(p.act.dom), ao: Math.round(p.act.ovs),
+      };
+      ws.getCell(row, c0).value = v.bd;
+      ws.getCell(row, c0 + 1).value = v.bo;
+      ws.getCell(row, c0 + 3).value = v.ad;
+      ws.getCell(row, c0 + 4).value = v.ao;
+      derive(row, c0, v);
+      rv.push(v);
     });
+    rowVals.set(row, rv);
   }
   /** 합계 줄 — 국내·해외는 아래 줄들을 더하고 나머지는 같은 수식. */
   function writeSum(row: number, srcRows: number[]) {
+    const rv: Quad[] = [];
     blocks.forEach((_, bi) => {
       const c0 = firstCol + bi * BLOCK;
-      for (const off of [0, 1, 3, 4]) {
-        const col = L(c0 + off);
-        ws.getCell(row, c0 + off).value = { formula: `SUM(${srcRows.map((r) => `${col}${r}`).join(",")})` };
+      const v: Quad = { bd: 0, bo: 0, ad: 0, ao: 0 };
+      for (const r of srcRows) {
+        const q = rowVals.get(r)![bi];
+        v.bd += q.bd; v.bo += q.bo; v.ad += q.ad; v.ao += q.ao;
       }
-      derive(row, c0);
+      ([[0, "bd"], [1, "bo"], [3, "ad"], [4, "ao"]] as const).forEach(([off, key]) => {
+        const col = L(c0 + off);
+        ws.getCell(row, c0 + off).value = {
+          formula: `SUM(${srcRows.map((r) => `${col}${r}`).join(",")})`,
+          result: v[key],
+        };
+      });
+      derive(row, c0, v);
+      rv.push(v);
     });
+    rowVals.set(row, rv);
   }
   /**
    * 접힘 표시. exceljs는 collapsed를 outlineLevel에서 유도하기만 해서 묶인 줄마다 켜 버리는데,
@@ -584,8 +653,11 @@ export async function GET() {
     const col = ws.getColumn(c);
     // 백만원으로 줄여 보이므로 자릿수가 짧다. '계'와 '차이'만 한 칸 넓게 둔다.
     col.width = off === 7 ? 9 : off === 2 || off === 5 || off === 6 ? 11.5 : 10.5;
-    // 국내·해외는 접을 수 있게 묶는다 — 접으면 '계'만 남는다.
-    if (off === 0 || off === 1 || off === 3 || off === 4) col.outlineLevel = 1;
+    // 국내·해외는 접은 채로 연다 — 펼치면 나뉜 금액이, 접으면 '계'만 보인다.
+    // 접힘 표시는 묶음 바로 오른쪽('계')이 들고 있어야 +/- 단추가 맞게 그려진다.
+    const grouped = off === 0 || off === 1 || off === 3 || off === 4;
+    if (grouped) { col.outlineLevel = 1; col.hidden = true; }
+    Object.defineProperty(col, "collapsed", { value: !grouped && (off === 2 || off === 5), configurable: true });
   }
   ws.properties.outlineLevelCol = 1;
   ws.properties.outlineLevelRow = 2;
@@ -606,19 +678,37 @@ export async function GET() {
       return Array.from({ length: b.thru! }, (_, i) => at(i));
     };
 
-    sh.getCell(aRow, 1).value = "검토";
-    sh.getCell(aRow, 2).value = {
-      formula: `IF(SUMPRODUCT(ABS(${S(sKey + 1)}${aRow}:${S(sLast)}${aRow}))=0,"일치","불일치")`,
+    /** 팀별 '총 합계' 줄에 적힌 값 (off 0=예산 계, 3=실적 계). */
+    const teamValue = (b: Block, off: number) => {
+      const q = rowVals.get(lastRow)!;
+      const at = (bi: number) => (off === 0 ? q[bi].bd + q[bi].bo : q[bi].ad + q[bi].ao);
+      if (b.kind === "month") return at(b.m! - 1);
+      if (b.kind === "year") return at(blocks.length - 1);
+      let sum = 0;
+      for (let i = 0; i < b.thru!; i++) sum += at(i);
+      return sum;
     };
+    /** 엑셀 ROUND와 같은 반올림(0에서 먼 쪽)으로 백만원 단위를 만든다. */
+    const mil = (x: number) => (x < 0 ? -Math.round(-x / 1000000) : Math.round(x / 1000000));
+
+    sh.getCell(aRow, 1).value = "검토";
+    let worst = 0;
     sBlocks.forEach((b, bi) => {
       const c0 = sFirst + bi * SB;
       for (const off of [0, 1]) {
         const team = teamRefs(b, off === 0 ? 0 : 3);
+        const diff = mil(audit.vals[bi][off === 0 ? "b" : "a"]) - mil(teamValue(b, off === 0 ? 0 : 3));
+        worst = Math.max(worst, Math.abs(diff));
         sh.getCell(aRow, c0 + off).value = {
           formula: `ROUND(${S(c0 + off)}$${totalRow}/1000000,0)-ROUND(SUM(${team.join(",")})/1000000,0)`,
+          result: diff,
         };
       }
     });
+    sh.getCell(aRow, 2).value = {
+      formula: `IF(SUMPRODUCT(ABS(${S(sKey + 1)}${aRow}:${S(sLast)}${aRow}))=0,"일치","불일치")`,
+      result: worst === 0 ? "일치" : "불일치",
+    };
     for (let c = 1; c <= sLast; c++) {
       const cell = sh.getCell(aRow, c);
       cell.fill = fill("FFFFF4D6");
