@@ -579,6 +579,8 @@ export default function Dashboard({ data }: { data: DashboardData }) {
               <div id="allocDiffTable" />
             </div>
           </div>
+          {/* 세 표가 같은 법인 묶음을 쓰므로, '기타'가 무엇인지는 맨 아래 한 번만 밝힌다. */}
+          <div className="note" id="allocNote" />
         </div>
       </div>
 

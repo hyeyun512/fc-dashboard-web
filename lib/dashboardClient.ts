@@ -926,10 +926,9 @@ export function initDashboard(data: DashboardData): () => void {
     );
 
     // 본사·법인 요약 표와 비교 막대는 아래 "보고용 부문별 상세"에 소계로 이미 들어 있어 제거했다.
-    const deptOrder: Record<string, number> = { 본사: 0, 법인: 1 };
-    const rows = [...s.rows].sort(
-      (a, b) => (deptOrder[a.hq_corp] ?? 9) - (deptOrder[b.hq_corp] ?? 9) || a.dept.localeCompare(b.dept, "ko")
-    );
+    // 차례는 aggregate가 이미 정해 두었다 (본사 부문 차례 / 법인은 CORP_GROUPS 묶음 차례).
+    // 여기서 가나다순으로 다시 세우면 Summary 상세·App3와 다른 차례가 되어 같은 장부를 두 벌로 읽게 된다.
+    const rows = s.rows;
     let html = "";
     for (const hq of ["본사", "법인"]) {
       const list = rows.filter((r) => r.hq_corp === hq);
@@ -1187,6 +1186,12 @@ export function initDashboard(data: DashboardData): () => void {
     html += "</tbody></table>";
     return html;
   }
+  /** '기타'로 묶은 법인이 무엇인지 밝히는 각주. 본사 구분에도 '기타'가 있어 "법인의 기타"로 적는다. */
+  function corpOtherNote(board: AllocationRow[]): string {
+    const hasOther = corpCompanyRows(board).some((r) => r.label === CORP_OTHER_LABEL);
+    return hasOther ? `* 법인의 ${CORP_OTHER_LABEL} = ${CORP_OTHER_CODES.join(", ")} 합계` : "";
+  }
+
   function renderAlloc() {
     const scope = getScope();
     const board = scope.allocationBoard;
@@ -1197,6 +1202,7 @@ export function initDashboard(data: DashboardData): () => void {
     setText("allocDiffSub", scopeLabel() + " · 백만원 · 값에 마우스를 올리면 원인 대계정이 표시됩니다");
     setHtml("allocDiffTable", allocDiffTable(board.actual, board.budget));
     setHtml("allocTrendInsight", allocTrendCardsHtml(board.actual, board.budget));
+    setText("allocNote", corpOtherNote(board.actual));
   }
 
   const ALLOC_FIELDS: (keyof AllocValues13)[] = [
@@ -1728,8 +1734,7 @@ export function initDashboard(data: DashboardData): () => void {
 
     // '기타'로 묶은 법인이 무엇인지 표 아래 각주로 밝힌다.
     // 본사 구분에도 '기타'가 있으므로 "법인의 기타"로 명확히 적는다.
-    const hasOther = corpCompanyRows(board).some((r) => r.label === CORP_OTHER_LABEL);
-    setText("sumDetailNote", hasOther ? `* 법인의 ${CORP_OTHER_LABEL} = ${CORP_OTHER_CODES.join(", ")} 합계` : "");
+    setText("sumDetailNote", corpOtherNote(board));
   }
 
   // ================= SUMMARY② EVCS사업부 =================

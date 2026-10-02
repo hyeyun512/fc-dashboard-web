@@ -33,8 +33,25 @@ const PREFERRED_CATEGORY_ORDER = ["인건비", "여비교통비", "지급수수�
 const PREFERRED_FEE_ORDER = ["29 지급수수료", "40 외주개발용역비", "41 인증대행료", "42 특허처리비"];
 const HQ_ORDER: Record<string, number> = { 본사: 0, 법인: 1 };
 const PREFERRED_HQ_DEPT_ORDER = ["1. 사업 그룹", "2. 개발 그룹", "3. SCM 부문", "4. Media그룹", "5. Staff부문"];
+/**
+ * Staff부문 하위 조직은 원장(large_org)에 열몇 개로 흩어져 있어 그대로 세우면 표가 너무 길다.
+ * 보고에서 읽는 단위는 넷뿐이므로 그 넷으로 모아 세운다 (2026-10-02 개발안의 매핑 기준).
+ * 여기 없는 조직이 새로 생기면 제 이름 그대로 뒤에 붙어, 빠뜨린 것이 눈에 띈다.
+ */
 const PREFERRED_STAFF_SUBORG_ORDER = ["CEO", "Staff(CEO)", "경영지원실", "HR실"];
-const STAFF_SUBORG_LABEL: Record<string, string> = {};
+const STAFF_SUBORG_MEMBERS: Record<string, string[]> = {
+  "CEO": ["CEO"],
+  "Staff(CEO)": ["EVCS부문장", "IT팀", "Staff(CEO)", "법무팀", "회계팀", "투자관리팀"],
+  "경영지원실": ["경영지원실", "재무팀", "경영관리팀"],
+  "HR실": ["HR실장", "HR팀", "업무지원팀"],
+};
+const STAFF_SUBORG_OF = new Map<string, string>(
+  Object.entries(STAFF_SUBORG_MEMBERS).flatMap(([group, members]) => members.map((m) => [m, group] as const))
+);
+/** 원장의 조직 이름 -> 보고에서 세우는 묶음 이름. */
+function staffGroupOf(largeOrg: string): string {
+  return STAFF_SUBORG_OF.get(largeOrg) ?? largeOrg;
+}
 import { CORP_GROUPS, CORP_OTHER_LABEL } from "./corpGroups";
 
 type Row = {
@@ -142,7 +159,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     const hq = r.hq_corp || "기타";
     if (hq === "본사" && r.report_use_re) {
       hqDeptSet.add(r.report_use_re);
-      if (r.report_use_re === "5. Staff부문" && r.large_org) staffSubSet.add(r.large_org);
+      if (r.report_use_re === "5. Staff부문" && r.large_org) staffSubSet.add(staffGroupOf(r.large_org));
     }
     if (hq === "법인") {
       const co = r.report_use_re || r.company;
@@ -180,6 +197,18 @@ export async function loadDashboardData(): Promise<DashboardData> {
     return acc.replace(/^\d+\s*/, "");
   }
 
+  /**
+   * 보고용 부문 이름. 법인은 배부판과 같은 묶음으로 바꿔 부른다 (HDG는 HUK에, 소액은 '기타') —
+   * App1의 부문별 표가 Summary 상세·App3와 다른 이름·차례로 서면 같은 장부를 두 벌로 읽게 된다.
+   */
+  const CORP_LABEL_BY_CODE = new Map(CORP_GROUPS.flatMap((g) => g.codes.map((c) => [c, g.label] as const)));
+  const CORP_LABEL_RANK = new Map([...CORP_GROUPS.map((g) => g.label), CORP_OTHER_LABEL].map((l, i) => [l, i]));
+  function deptLabelOf(r: Row): string {
+    const d = r.report_use_re || "미분류";
+    if (effectiveAllocHq(r) !== "법인") return d;
+    return CORP_LABEL_BY_CODE.get(d) ?? CORP_OTHER_LABEL;
+  }
+
   function sumByHqDept(
     rows: Row[],
     amountOf: (r: Row) => number
@@ -188,7 +217,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     const byAccount = new Map<string, Map<string, number>>();
     for (const r of rows) {
       const hq = effectiveAllocHq(r);
-      const dept = r.report_use_re || "미분류";
+      const dept = deptLabelOf(r);
       const key = hq + "|" + dept;
       const cur = map.get(key) || { hq_corp: hq, dept, actual: 0, budget: 0, byMainAccount: [] };
       cur.actual += amountOf(r);
@@ -209,7 +238,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
   ) {
     for (const r of rows) {
       const hq = effectiveAllocHq(r);
-      const dept = r.report_use_re || "미분류";
+      const dept = deptLabelOf(r);
       const key = hq + "|" + dept;
       const cur = map.get(key) || { hq_corp: hq, dept, actual: 0, budget: 0, byMainAccount: [] };
       cur.budget += amountOf(r);
@@ -238,7 +267,12 @@ export async function loadDashboardData(): Promise<DashboardData> {
       }));
     }
     const rows = [...map.values()].sort(
-      (a, b) => (HQ_ORDER[a.hq_corp] ?? 9) - (HQ_ORDER[b.hq_corp] ?? 9) || a.dept.localeCompare(b.dept, "ko")
+      (a, b) =>
+        (HQ_ORDER[a.hq_corp] ?? 9) - (HQ_ORDER[b.hq_corp] ?? 9) ||
+        (a.hq_corp === "법인"
+          ? (CORP_LABEL_RANK.get(a.dept) ?? 99) - (CORP_LABEL_RANK.get(b.dept) ?? 99)
+          : 0) ||
+        a.dept.localeCompare(b.dept, "ko")
     );
     const hq_totals: Record<string, { actual: number; budget: number }> = {};
     for (const hq of ["본사", "법인"]) {
@@ -288,7 +322,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     for (const r of actRows) {
       if (r.category !== "지급수수료" || !r.main_account_re) continue;
       act.set(r.main_account_re, (act.get(r.main_account_re) || 0) + n(r.amount_krw));
-      const dept = r.report_use_re || "미분류";
+      const dept = deptLabelOf(r);
       const dm = actByDept.get(r.main_account_re) || new Map<string, number>();
       dm.set(dept, (dm.get(dept) || 0) + n(r.amount_krw));
       actByDept.set(r.main_account_re, dm);
@@ -296,7 +330,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     for (const r of budRows) {
       if (r.category !== "지급수수료" || !r.main_account_re) continue;
       bud.set(r.main_account_re, (bud.get(r.main_account_re) || 0) + n(r.amount_krw));
-      const dept = r.report_use_re || "미분류";
+      const dept = deptLabelOf(r);
       const dm = budByDept.get(r.main_account_re) || new Map<string, number>();
       dm.set(dept, (dm.get(dept) || 0) + n(r.amount_krw));
       budByDept.set(r.main_account_re, dm);
@@ -321,7 +355,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     for (const r of actRows) {
       if (!r.main_account_re || effectiveAllocHq(r) !== hq) continue;
       act.set(r.main_account_re, (act.get(r.main_account_re) || 0) + amountOf(r));
-      const dept = r.report_use_re || "미분류";
+      const dept = deptLabelOf(r);
       const dm = actByDept.get(r.main_account_re) || new Map<string, number>();
       dm.set(dept, (dm.get(dept) || 0) + amountOf(r));
       actByDept.set(r.main_account_re, dm);
@@ -329,7 +363,7 @@ export async function loadDashboardData(): Promise<DashboardData> {
     for (const r of budRows) {
       if (!r.main_account_re || effectiveAllocHq(r) !== hq) continue;
       bud.set(r.main_account_re, (bud.get(r.main_account_re) || 0) + amountOf(r));
-      const dept = r.report_use_re || "미분류";
+      const dept = deptLabelOf(r);
       const dm = budByDept.get(r.main_account_re) || new Map<string, number>();
       dm.set(dept, (dm.get(dept) || 0) + amountOf(r));
       budByDept.set(r.main_account_re, dm);
@@ -565,8 +599,8 @@ export async function loadDashboardData(): Promise<DashboardData> {
       board.push(allocationRow(dept, 1, deptRows));
       if (dept === "5. Staff부문") {
         for (const sub of staffSubOrder) {
-          const subRows = deptRows.filter((r) => (r.large_org || "미분류") === sub);
-          board.push(allocationRow(STAFF_SUBORG_LABEL[sub] || sub, 2, subRows));
+          const subRows = deptRows.filter((r) => staffGroupOf(r.large_org || "미분류") === sub);
+          board.push(allocationRow(sub, 2, subRows));
         }
       }
     }
@@ -662,9 +696,9 @@ export async function loadDashboardData(): Promise<DashboardData> {
       out.push(feeOrgRow(dept, 0, deptAct, deptBud));
       if (dept === "5. Staff부문") {
         for (const sub of staffSubOrder) {
-          const subAct = deptAct.filter((r) => (r.large_org || "미분류") === sub);
-          const subBud = deptBud.filter((r) => (r.large_org || "미분류") === sub);
-          out.push(feeOrgRow(STAFF_SUBORG_LABEL[sub] || sub, 1, subAct, subBud));
+          const subAct = deptAct.filter((r) => staffGroupOf(r.large_org || "미분류") === sub);
+          const subBud = deptBud.filter((r) => staffGroupOf(r.large_org || "미분류") === sub);
+          out.push(feeOrgRow(sub, 1, subAct, subBud));
         }
       }
     }
