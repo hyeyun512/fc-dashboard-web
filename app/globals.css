@@ -201,6 +201,22 @@ body{font-family:Arial,'Pretendard','Malgun Gothic','Apple SD Gothic Neo',sans-s
 .pl-tbl.parallel-tbl tbody td:nth-child(6){border-left:1px solid #e2e8f0}
 .pl-tbl.parallel-tbl thead tr:nth-child(2) th:nth-child(9),
 .pl-tbl.parallel-tbl tbody td:nth-child(10){border-left:1px solid #e2e8f0}
+
+/* ---- 대계정별 상세(App2 전사·상세 / App5 EVCS·상세)의 '구분' 열 ----
+   같은 구분이 줄마다 되풀이되면(기타가 스물두 줄, 지급수수료가 네 줄) 왼쪽 열이 글자로 막혀
+   정작 읽어야 할 금액이 뒤로 밀린다. 글자는 묶음 머리에만 두고, 구분이 바뀌는 자리에는
+   굵은 가로선을, 열 오른쪽에는 세로선을 둬서 묶음의 시작과 끝을 눈으로 잡게 한다.
+   되풀이되던 글자는 .ma-echo로 DOM에만 남겨, 읽어주기와 표 복사에서는 구분이 빠지지 않는다.
+   이 두 장만 바꾸는 것이므로 #tab-category / #tab-evcs 아래로 한정한다
+   (mainAccountTable은 이 두 장에서만 쓰이지만, 선택자까지 한정해 두어야 나중에도 번지지 않는다). */
+#tab-category .ma-tbl td.ma-cat,
+#tab-evcs .ma-tbl td.ma-cat{position:relative;white-space:nowrap;vertical-align:top;padding-left:12px;padding-right:12px;font-size:12px;font-weight:600;color:#1a202c;letter-spacing:-.2px;border-right:0.5px solid #eef2f7}
+#tab-category .ma-tbl .ma-echo,
+#tab-evcs .ma-tbl .ma-echo{position:absolute;width:1px;height:1px;margin:-1px;padding:0;border:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap}
+/* 묶음 하나가 tbody 하나다 — tbody가 바뀌는 자리에만 경계선을 긋는다.
+   첫 묶음은 머리글(thead) 아래선이 이미 경계라 tbody+tbody로 건너뛴다. */
+#tab-category .ma-tbl tbody + tbody > tr:first-child > td,
+#tab-evcs .ma-tbl tbody + tbody > tr:first-child > td{border-top:1px solid #cbd5e1}
 .neg{color:#dc2626!important}
 .pos{color:#2563eb!important}
 .hq-chip{font-size:10.5px;font-weight:700;padding:1px 7px;border-radius:5px;margin-right:6px;letter-spacing:.2px}
@@ -531,6 +547,17 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-evcs .cert-chart{height:120px}
   /* 표/패널이 페이지 경계에서 어색하게 잘리지 않도록 한다 (여러 페이지로 나뉘는 Appendix용). */
   #tab-evcs .tbl-box,#tab-evcs .panel,#tab-category .tbl-box,#tab-category .panel{break-inside:avoid}
+  /* ---- 대계정별 상세의 '구분' 묶음 (App2 · App5) ----
+     구분 글자가 묶음 머리에만 있으므로, 묶음이 페이지 경계에 걸리면 뒷장으로 넘어간 줄들이
+     어느 구분인지 알 수 없게 된다. 묶음 하나가 tbody 하나이니 tbody를 통째로 유지해
+     머리와 몸이 늘 같은 페이지에 남게 한다 (가장 큰 묶음인 '기타'가 22줄 ≈ 310px이라
+     한 페이지 702px 안에 언제나 들어간다. 위 .tbl-box 규칙이 먼저 표 전체를 한 페이지에
+     붙들지만, 달이 바뀌어 행이 늘어 표가 한 페이지를 넘기는 날에도 이 규칙이 받쳐 준다). */
+  #tab-category .ma-tbl tbody,#tab-evcs .ma-tbl tbody{break-inside:avoid;page-break-inside:avoid}
+  /* 구분 열은 길잡이지 숫자가 아니다. 좁은 법인 표(0.85fr)에서 '여/비/교/통/비'처럼
+     한 글자씩 세로로 접히며 줄 높이를 27px까지 밀어 올리던 것을 막는다 — 한 줄로 두되
+     글자와 좌우 여백을 줄여, 늘어난 열 너비를 비고란에서 뺏어오지 않게 한다. */
+  #tab-category .ma-tbl td.ma-cat,#tab-evcs .ma-tbl td.ma-cat{padding-left:7px!important;padding-right:3px!important;font-size:8px!important;letter-spacing:-.3px;border-right-color:#e2e8f0}
   /* Appendix D의 배부판 3장(예산/실적/Diff)은 한 장씩 끊어 인쇄한다.
      행이 많아 페이지 경계에 걸리면 표가 중간에서 잘리거나 머리글만 앞 페이지에 남는데,
      세 장을 이어 붙여 아낄 만한 분량도 아니라 각각 한 페이지를 주는 편이 읽기 쉽다. */
@@ -555,6 +582,13 @@ footer{text-align:center;padding:22px;color:#94a3b8;font-size:11.5px}
   #tab-evcs .remark-clip,#tab-category .remark-clip{display:block;max-width:140px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   /* 비고가 길면 표가 100%를 넘겨 인쇄 폭 밖으로 나간다 — 셀 폭 자체에도 상한을 둔다. */
   #tab-evcs .pl-tbl .remark-cell,#tab-category .pl-tbl .remark-cell{max-width:140px}
+  /* 대계정별 상세만은 비고 폭을 고정 140px이 아니라 '남는 자리'로 잡는다.
+     구분 열이 한 줄로 서면서 제 너비(법인 표 기준 50px)를 찾아가는데, 고정 140px으로 두면
+     비고 글자가 제 칸보다 넓어져 표 밖으로 삐져나온다(상자에 가려 글자가 중간에서 잘린다).
+     칸을 max-width:0으로 두면 표가 다른 열을 먼저 채우고 남는 만큼을 비고에 넘기므로,
+     넓은 본사 표에서는 더 많이 보이고 좁은 법인 표에서는 칸 안에서 …로 깔끔히 잘린다. */
+  #tab-category .ma-tbl td.remark-cell,#tab-evcs .ma-tbl td.remark-cell{max-width:0;width:100%}
+  #tab-category .ma-tbl td.remark-cell .remark-clip,#tab-evcs .ma-tbl td.remark-cell .remark-clip{max-width:none}
   #tab-summary .hq-chip,#tab-evcs .hq-chip,#tab-category .hq-chip{font-size:8px;padding:0 4px;margin-right:4px}
   /* 집행률 배지가 셀 안에서 가장 큰 요소라 행 높이를 결정한다 — 배지도 함께 줄여야 표가 실제로 작아진다. */
   #tab-summary .pl-tbl .kbadge,#tab-evcs .pl-tbl .kbadge,#tab-category .pl-tbl .kbadge,#tab-alloc .pl-tbl .kbadge{font-size:8px;padding:1px 5px}

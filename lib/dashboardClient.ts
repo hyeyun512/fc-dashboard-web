@@ -852,29 +852,52 @@ export function initDashboard(data: DashboardData): () => void {
   function mainAccountRemark(r: MainAccountRow): string {
     return attributionRemark(r.byDept.map((d) => ({ label: stripDeptNumber(d.dept), actual: d.actual, budget: d.budget })), r.actual, r.budget);
   }
-  /** 대계정별 상세 표 (구분 컬럼 + 비고). 계정별 탭과 EVCS 탭이 공유한다. */
+  /** 대계정별 상세 표 (구분 컬럼 + 비고). 계정별 탭(App2)과 EVCS 탭(App5)이 공유한다.
+   *  구분(인건비…기타)은 aggregate에서 이미 정해진 차례로 모여 오므로, 이어지는 동안은
+   *  글자를 되풀이하지 않고 묶음 머리에만 적는다. 대신 묶음마다 tbody를 끊어
+   *  (1) 구분이 바뀌는 자리에 경계선을 긋고 (2) 인쇄에서 묶음을 통째로 유지해
+   *  페이지가 넘어가며 머리 글자만 앞 장에 남는 일을 막는다. CSS는 app/globals.css의
+   *  #tab-category / #tab-evcs .ma-tbl 규칙. */
   function mainAccountTable(allRows: MainAccountRow[]): string {
     // 예산·실적이 모두 0인 대계정은 읽을 정보가 없는데 행만 차지한다 (인쇄 분량도 그만큼 늘어난다).
     const rows = allRows.filter((r) => r.actual !== 0 || r.budget !== 0);
-    const bodyRows = rows
-      .map((r) => {
-        const diff = r.actual - r.budget;
-        return `<tr><td>${r.category}</td><td>${r.accountLabel}</td>
+    // 이어지는 같은 구분끼리 묶는다 (차례는 건드리지 않고 경계만 찾는다).
+    const groups: MainAccountRow[][] = [];
+    for (const r of rows) {
+      const last = groups[groups.length - 1];
+      if (last && last[0].category === r.category) last.push(r);
+      else groups.push([r]);
+    }
+    const bodyGroups = groups
+      .map((g) => {
+        const trs = g
+          .map((r, i) => {
+            const diff = r.actual - r.budget;
+            // 묶음 머리에만 구분을 보여준다. 뒤따르는 행도 DOM에는 같은 글자를 남겨 두되
+            // .ma-echo로 눈에서만 감춘다 — 읽어주기(스크린리더)와 복사한 표에서는 구분이 빠지지 않는다.
+            const catCell =
+              i === 0
+                ? `<td class="ma-cat">${r.category}</td>`
+                : `<td class="ma-cat"><span class="ma-echo">${r.category}</span></td>`;
+            return `<tr>${catCell}<td>${r.accountLabel}</td>
           <td${cls(r.budget)}>${money(r.budget)}</td><td${cls(r.actual)}>${money(r.actual)}</td>
           <td${diffCls(diff)}>${money(diff, { sign: true })}</td>
           <td class="badge-cell">${rateBadgeCell(rateOf(r.actual, r.budget))}</td>
           <td class="remark-cell"><span class="remark-clip">${mainAccountRemark(r)}</span></td></tr>`;
+          })
+          .join("");
+        return `<tbody class="ma-grp">${trs}</tbody>`;
       })
       .join("");
     const totA = rows.reduce((sum, r) => sum + r.actual, 0);
     const totB = rows.reduce((sum, r) => sum + r.budget, 0);
     const totDiff = totA - totB;
-    const totRow = `<tr class="tot"><td colspan="2">대계정 합계</td>
+    const totRow = `<tbody class="ma-grp"><tr class="tot"><td colspan="2">대계정 합계</td>
       <td>${money(totB)}</td><td>${money(totA)}</td>
       <td${diffCls(totDiff)}>${money(totDiff, { sign: true })}</td>
       <td class="badge-cell">${rateBadgeCell(rateOf(totA, totB))}</td>
-      <td></td></tr>`;
-    return `<table class="pl-tbl"><thead><tr><th>구분</th><th>대계정</th><th>예산</th><th>실적</th><th>차이</th><th>집행률</th><th class="remark-th">비고</th></tr></thead><tbody>${bodyRows}${totRow}</tbody></table>`;
+      <td></td></tr></tbody>`;
+    return `<table class="pl-tbl ma-tbl"><thead><tr><th>구분</th><th>대계정</th><th>예산</th><th>실적</th><th>차이</th><th>집행률</th><th class="remark-th">비고</th></tr></thead>${bodyGroups}${totRow}</table>`;
   }
 
   // ================= SUMMARY TAB =================
