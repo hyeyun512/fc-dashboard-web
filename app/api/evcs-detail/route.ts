@@ -127,7 +127,7 @@ export async function GET() {
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
   const ws = wb.addWorksheet("팀별", {
-    views: [{ state: "frozen", xSplit: 4, ySplit: 4 }],
+    views: [{ state: "frozen", xSplit: 4, ySplit: 5 }],
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
 
@@ -137,11 +137,16 @@ export async function GET() {
    * 블록 차례 — 월(1~보고월) → 누계(같은 기간끼리 예산 대비 실적) → 연간(26BP 대비 누계 실적).
    * 누계가 연간 앞에 서는 이유는, 같은 기간끼리 견주는 것이 먼저이고 연간은 진도율이기 때문이다.
    */
-  const blocks: { title: string; bud: string; act: string; kind: "month" | "cum" | "year" }[] = [
-    ...months.map((m) => ({ title: m, bud: "예산", act: "실적", kind: "month" as const })),
-    { title: `${lastMonth}월 누계`, bud: "누계 예산", act: "누계 실적", kind: "cum" as const },
-    { title: "연간", bud: "26BP 예산", act: `${lastMonth}월 누계 실적`, kind: "year" as const },
-  ];
+  type Block = {
+    title: string; bud: string; act: string;
+    kind: "month" | "cum" | "year";
+    m?: number;      // 월 블록이 가리키는 달
+    thru?: number;   // 누계 블록이 몇 월까지인지
+  };
+  const monthBlock = (m: number): Block => ({ title: `${m}월`, bud: "예산", act: "실적", kind: "month", m });
+  const cumBlock = (m: number): Block => ({ title: `${m}월 누계`, bud: "누계 예산", act: "누계 실적", kind: "cum", thru: m });
+  const yearBlock: Block = { title: "연간", bud: "26BP 예산", act: `${lastMonth}월 누계 실적`, kind: "year" };
+  const blocks: Block[] = [...months.map((_, i) => monthBlock(i + 1)), cumBlock(lastMonth), yearBlock];
   const firstCol = KEY_COLS + 1;
   const lastCol = KEY_COLS + blocks.length * BLOCK;
   const L = (c: number) => ws.getColumn(c).letter;
@@ -168,12 +173,13 @@ export async function GET() {
   ws.getCell(1, 1).value = `EVCS 사업부 ${lastMonth}월 누계 실적 상세`;
   ws.mergeCells(1, 1, 1, KEY_COLS);
   ws.getCell(1, 1).font = f({ bold: true, size: 13, color: { argb: NAVY } });
-  ws.getCell(1, KEY_COLS + 1).value = "(단위: 백만원)";
-  ws.getCell(1, KEY_COLS + 1).font = f({ bold: true, color: { argb: INK } });
-  ws.getCell(1, KEY_COLS + 1).alignment = { horizontal: "left", vertical: "middle" };
   ws.getRow(1).height = 24;
+  ws.getCell(2, 1).value = "(단위: 백만원)";
+  ws.getCell(2, 1).font = f({ bold: true, color: { argb: INK } });
+  ws.getCell(2, 1).alignment = { horizontal: "left", vertical: "bottom" };
+  ws.getRow(2).height = 16;
 
-  const HR = 2;   // 머리글 첫 줄
+  const HR = 3;   // 머리글 첫 줄 (1=제목, 2=단위)
   const KEY_NAMES = ["보고용", "대조직", "구분", "대계정"];
   KEY_NAMES.forEach((v, i) => {
     ws.getCell(HR, i + 1).value = v;
@@ -215,14 +221,15 @@ export async function GET() {
 
   // ── 값 ──────────────────────────────────────────────────────────────────────
   type Pair = { bud: Cell; act: Cell };
-  const dataOf = (k: string) => (bi: number): Pair => {
-    const b = blocks[bi];
+  const dataOf = (k: string) => (b: Block): Pair => {
     if (b.kind === "month") {
-      const m = months[bi];
+      const m = `${b.m}월`;
       return { bud: budMap.get(k)?.get(m) ?? zero(), act: actMap.get(k)?.get(m) ?? zero() };
     }
+    const thru = b.kind === "cum" ? b.thru! : lastMonth;
     const cumA = zero(), cumB = zero();
-    for (const m of months) {
+    for (let i = 1; i <= thru; i++) {
+      const m = `${i}월`;
       const a = actMap.get(k)?.get(m);
       if (a) { cumA.dom += a.dom; cumA.ovs += a.ovs; }
       const bb = budMap.get(k)?.get(m);
@@ -231,6 +238,9 @@ export async function GET() {
     return { bud: b.kind === "cum" ? cumB : budYear.get(k) ?? zero(), act: cumA };
   };
 
+  // 요약 장을 다 그린 뒤, 팀별 장의 '총 합계'가 정해지면 맨 아래에 검토 줄을 붙인다.
+  let audit: { blocks: Block[]; first: number; SB: number; key: number; last: number; totalRow: number } | null = null;
+
   // ── 요약 시트 ───────────────────────────────────────────────────────────────
   // 본사·법인을 구분(인건비…기타)으로만 접은 한 장. 팀별 시트가 '어디서 썼나'라면
   // 이 장은 '무엇에 썼나'다 — 참고 양식의 요약 시트와 같은 모양으로 맨 앞에 둔다.
@@ -238,31 +248,40 @@ export async function GET() {
     const SB = 5;   // 예산 · 실적 · 차이 · 집행률 · 구성비
     const sKey = 2; // 구분 · 항목
     const sFirst = sKey + 1;
-    const sLast = sKey + blocks.length * SB;
+    const sHR = 3;  // 머리글 첫 줄 (1=제목, 2=단위)
+    // 요약은 달마다 그 달까지의 누계를 끼고 간다 — 1월은 누계가 곧 그 달이라 뺀다.
+    const sBlocks: Block[] = [];
+    for (let m = 1; m <= lastMonth; m++) {
+      sBlocks.push(monthBlock(m));
+      if (m >= 2) sBlocks.push(cumBlock(m));
+    }
+    sBlocks.push(yearBlock);
+    const sLast = sKey + sBlocks.length * SB;
     const S = (c: number) => sh.getColumn(c).letter;
 
     // 제목은 병합하지 않고 흘려 둔다 — 병합하면 두 칸 폭에 갇혀 글자가 잘린다.
     sh.getCell(1, 1).value = `▣ EVCS 사업부 ${lastMonth}월 누계 실적`;
     sh.getCell(1, 1).font = f({ bold: true, size: 13, color: { argb: NAVY } });
-    sh.getCell(1, sKey + 3).value = "(단위: 백만원)";
-    sh.getCell(1, sKey + 3).font = f({ bold: true, color: { argb: INK } });
-    sh.getCell(1, sKey + 3).alignment = { horizontal: "left", vertical: "middle" };
     sh.getRow(1).height = 24;
+    sh.getCell(2, 1).value = "(단위: 백만원)";
+    sh.getCell(2, 1).font = f({ bold: true, color: { argb: INK } });
+    sh.getCell(2, 1).alignment = { horizontal: "left", vertical: "bottom" };
+    sh.getRow(2).height = 16;
 
     ["구분", "항목"].forEach((v, i) => {
-      sh.getCell(2, i + 1).value = v;
-      sh.mergeCells(2, i + 1, 3, i + 1);
+      sh.getCell(sHR, i + 1).value = v;
+      sh.mergeCells(sHR, i + 1, sHR + 1, i + 1);
     });
-    blocks.forEach((b, bi) => {
+    sBlocks.forEach((b, bi) => {
       const c0 = sFirst + bi * SB;
-      sh.getCell(2, c0).value = b.title;
-      sh.mergeCells(2, c0, 2, c0 + SB - 1);
-      [b.bud, b.act, "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(3, c0 + i).value = v));
+      sh.getCell(sHR, c0).value = b.title;
+      sh.mergeCells(sHR, c0, sHR, c0 + SB - 1);
+      [b.bud, b.act, "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(sHR + 1, c0 + i).value = v));
     });
-    for (let r = 2; r <= 3; r++) {
+    for (let r = sHR; r <= sHR + 1; r++) {
       for (let c = 1; c <= sLast; c++) {
         const cell = sh.getCell(r, c);
-        const dark = r === 2 || c <= sKey;
+        const dark = r === sHR || c <= sKey;
         cell.font = f({ bold: true, color: { argb: dark ? "FFFFFFFF" : NAVY } });
         cell.fill = fill(dark ? HEAD_DARK : HEAD_MID);
         cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
@@ -270,11 +289,11 @@ export async function GET() {
         cell.border = { top: thin, bottom: thin, left: off === 0 || c === 1 ? edge : thin, right: off === SB - 1 || c === sKey ? edge : thin };
       }
     }
-    sh.getRow(2).height = 20;
-    sh.getRow(3).height = 18;
+    sh.getRow(sHR).height = 20;
+    sh.getRow(sHR + 1).height = 18;
 
     // 구분별로 모은다 (본사/법인 × 구분).
-    const sumBy = new Map<string, (bi: number) => Pair>();
+    const sumBy = new Map<string, (b: Block) => Pair>();
     const catsOf = (hq: string) => {
       const set = new Set<string>();
       for (const k of keys) if ((parts(k)[0] === "본사") === (hq === "본사")) set.add(parts(k)[3]);
@@ -285,10 +304,10 @@ export async function GET() {
     for (const hq of ["본사", "법인"]) {
       for (const cat of catsOf(hq)) {
         const ks = pick(hq, cat);
-        sumBy.set(hq + SEP + cat, (bi: number) => {
+        sumBy.set(hq + SEP + cat, (b: Block) => {
           const bud = zero(), act = zero();
           for (const k of ks) {
-            const v = dataOf(k)(bi);
+            const v = dataOf(k)(b);
             bud.dom += v.bud.dom; bud.ovs += v.bud.ovs;
             act.dom += v.act.dom; act.ovs += v.act.ovs;
           }
@@ -297,9 +316,8 @@ export async function GET() {
       }
     }
 
-    let sr = 4;
+    let sr = sHR + 2;
     const subRows: number[] = [];
-    const totalRowPlaceholder: number[] = [];
     for (const hq of ["본사", "법인"]) {
       const cats = catsOf(hq);
       const rowsHere: number[] = [];
@@ -307,21 +325,21 @@ export async function GET() {
         if (i === 0) sh.getCell(sr, 1).value = hq;
         sh.getCell(sr, 2).value = cat;
         const get = sumBy.get(hq + SEP + cat)!;
-        blocks.forEach((_, bi) => {
+        sBlocks.forEach((b, bi) => {
           const c0 = sFirst + bi * SB;
-          const v = get(bi);
+          const v = get(b);
           sh.getCell(sr, c0).value = Math.round(v.bud.dom + v.bud.ovs);
           sh.getCell(sr, c0 + 1).value = Math.round(v.act.dom + v.act.ovs);
           sh.getCell(sr, c0 + 2).value = { formula: `${S(c0 + 1)}${sr}-${S(c0)}${sr}` };
           sh.getCell(sr, c0 + 3).value = { formula: `IF(${S(c0)}${sr}=0,"",${S(c0 + 1)}${sr}/${S(c0)}${sr})` };
-          totalRowPlaceholder.push(0);   // 구성비는 Total 줄이 정해진 뒤에 채운다
+          // 구성비는 Total 줄이 정해진 뒤에 채운다.
         });
         rowsHere.push(sr);
         sr++;
       });
       sh.getCell(sr, 1).value = hq;
       sh.getCell(sr, 2).value = "S-T";
-      blocks.forEach((_, bi) => {
+      sBlocks.forEach((_, bi) => {
         const c0 = sFirst + bi * SB;
         for (const off of [0, 1]) {
           sh.getCell(sr, c0 + off).value = { formula: `SUM(${rowsHere.map((r) => `${S(c0 + off)}${r}`).join(",")})` };
@@ -339,7 +357,7 @@ export async function GET() {
     const totalRow = sr;
     sh.getCell(totalRow, 1).value = "Total";
     sh.mergeCells(totalRow, 1, totalRow, 2);
-    blocks.forEach((_, bi) => {
+    sBlocks.forEach((_, bi) => {
       const c0 = sFirst + bi * SB;
       for (const off of [0, 1]) {
         sh.getCell(totalRow, c0 + off).value = { formula: `SUM(${subRows.map((r) => `${S(c0 + off)}${r}`).join(",")})` };
@@ -353,8 +371,8 @@ export async function GET() {
       sh.getCell(totalRow, c).font = f({ bold: true, size: 11, color: { argb: "FFFFFFFF" } });
     }
     // 구성비 — 그 줄의 실적이 Total 실적에서 차지하는 몫.
-    for (let r = 4; r < totalRow; r++) {
-      blocks.forEach((_, bi) => {
+    for (let r = sHR + 2; r < totalRow; r++) {
+      sBlocks.forEach((_, bi) => {
         const c0 = sFirst + bi * SB;
         sh.getCell(r, c0 + 4).value = {
           formula: `IF(${S(c0 + 1)}$${totalRow}=0,"",${S(c0 + 1)}${r}/${S(c0 + 1)}$${totalRow})`,
@@ -362,7 +380,7 @@ export async function GET() {
       });
     }
 
-    for (let r = 4; r <= totalRow; r++) {
+    for (let r = sHR + 2; r <= totalRow; r++) {
       for (let c = 1; c <= sLast; c++) {
         const cell = sh.getCell(r, c);
         if (!cell.font) cell.font = f({ color: { argb: INK } });
@@ -383,7 +401,17 @@ export async function GET() {
       const off = (c - sFirst) % SB;
       sh.getColumn(c).width = off >= 3 ? 9.5 : 12.5;
     }
-    sh.views = [{ state: "frozen", xSplit: 2, ySplit: 3 }];
+    // 보고월·보고월 누계·연간만 남기고 앞의 달들은 접어 둔다 — 필요하면 +를 눌러 펼친다.
+    const openFrom = sFirst + sBlocks.findIndex((b) => b.kind === "month" && b.m === lastMonth) * SB;
+    for (let c = sFirst; c < openFrom; c++) {
+      const col = sh.getColumn(c);
+      col.outlineLevel = 1;
+      col.hidden = true;
+    }
+    sh.properties.outlineLevelCol = 1;
+    sh.views = [{ state: "frozen", xSplit: 2, ySplit: sHR + 1 }];
+
+    audit = { blocks: sBlocks, first: sFirst, SB, key: sKey, last: sLast, totalRow };
   }
 
   /** 한 블록에서 값이 아닌 칸(계·차이·집행률)을 수식으로 채운다. */
@@ -394,10 +422,10 @@ export async function GET() {
     ws.getCell(row, c0 + 7).value = { formula: `IF(${L(c0 + 2)}${row}=0,"",${L(c0 + 5)}${row}/${L(c0 + 2)}${row})` };
   }
   /** 상세 줄 — 국내·해외만 값이고 나머지는 수식. */
-  function writeNumbers(row: number, get: (bi: number) => Pair) {
-    blocks.forEach((_, bi) => {
+  function writeNumbers(row: number, get: (b: Block) => Pair) {
+    blocks.forEach((b, bi) => {
       const c0 = firstCol + bi * BLOCK;
-      const v = get(bi);
+      const v = get(b);
       ws.getCell(row, c0).value = Math.round(v.bud.dom);
       ws.getCell(row, c0 + 1).value = Math.round(v.bud.ovs);
       ws.getCell(row, c0 + 3).value = Math.round(v.act.dom);
@@ -543,6 +571,47 @@ export async function GET() {
   }
   ws.properties.outlineLevelCol = 1;
   ws.properties.outlineLevelRow = 2;
+
+  // ── 요약 맨 아래 검토 줄 ────────────────────────────────────────────────────
+  // 요약의 Total이 팀별의 '총 합계'와 맞는지 엑셀이 직접 보게 한다. 두 장은 묶는 단위가 달라
+  // (요약은 구분까지, 팀별은 대계정까지) 원 단위로는 반올림 때문에 몇 원씩 어긋날 수 있으므로,
+  // 보이는 그대로 백만원으로 반올림해 견준다. 모든 칸이 0이면 일치다.
+  if (audit) {
+    const { blocks: sBlocks, first: sFirst, SB, key: sKey, last: sLast, totalRow } = audit;
+    const S = (c: number) => sh.getColumn(c).letter;
+    const aRow = totalRow + 2;
+    /** 팀별 '총 합계' 줄에서 이 블록에 해당하는 칸들 (off 0=예산 계, 3=실적 계). */
+    const teamRefs = (b: Block, off: number) => {
+      const at = (bi: number) => `'팀별'!${L(firstCol + bi * BLOCK + off + 2)}$${lastRow}`;
+      if (b.kind === "month") return [at(b.m! - 1)];
+      if (b.kind === "year") return [at(blocks.length - 1)];
+      return Array.from({ length: b.thru! }, (_, i) => at(i));
+    };
+
+    sh.getCell(aRow, 1).value = "검토";
+    sh.getCell(aRow, 2).value = {
+      formula: `IF(SUMPRODUCT(ABS(${S(sKey + 1)}${aRow}:${S(sLast)}${aRow}))=0,"일치","불일치")`,
+    };
+    sBlocks.forEach((b, bi) => {
+      const c0 = sFirst + bi * SB;
+      for (const off of [0, 1]) {
+        const team = teamRefs(b, off === 0 ? 0 : 3);
+        sh.getCell(aRow, c0 + off).value = {
+          formula: `ROUND(${S(c0 + off)}$${totalRow}/1000000,0)-ROUND(SUM(${team.join(",")})/1000000,0)`,
+        };
+      }
+    });
+    for (let c = 1; c <= sLast; c++) {
+      const cell = sh.getCell(aRow, c);
+      cell.fill = fill("FFFFF4D6");
+      cell.font = f({ bold: true, color: { argb: INK } });
+      cell.alignment = { horizontal: c <= sKey ? "left" : "right", vertical: "middle" };
+      if (c > sKey) cell.numFmt = "0;[Red]-0;0";
+      cell.border = { top: thin, bottom: thin, left: c === 1 || (c - sFirst) % SB === 0 ? edge : hair, right: c === sLast ? edge : hair };
+    }
+    sh.getCell(aRow + 1, 1).value = "※ 요약 Total − 팀별 '총 합계' (백만원). 모두 0이면 두 장의 숫자가 같다.";
+    sh.getCell(aRow + 1, 1).font = f({ size: 9, italic: true, color: { argb: "FF6B7280" } });
+  }
 
   const buf = await wb.xlsx.writeBuffer();
   const name = encodeURIComponent(`EVCS ${lastMonth}월 누계 실적 상세.xlsx`);
