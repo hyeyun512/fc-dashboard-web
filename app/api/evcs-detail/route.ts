@@ -139,7 +139,8 @@ export async function GET() {
   });
   const ws = wb.addWorksheet("팀별", {
     views: [{ state: "frozen", xSplit: 4, ySplit: 5 }],
-    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+    pageSetup: { orientation: "landscape" },
+    properties: { outlineProperties: { summaryBelow: false, summaryRight: true } },
   });
 
   const KEY_COLS = 4;   // 보고용 · 대조직 · 구분 · 대계정
@@ -289,7 +290,10 @@ export async function GET() {
       const c0 = sFirst + bi * SB;
       sh.getCell(sHR, c0).value = b.title;
       sh.mergeCells(sHR, c0, sHR, c0 + SB - 1);
-      [b.bud, b.act, "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(sHR + 1, c0 + i).value = v));
+      // '26BP 예산'처럼 긴 머리글은 좁아진 칸에서 아무 데서나 접힌다('26BP 예'/'산').
+      // 마지막 띄어쓰기에서 끊어 두 줄로 세운다.
+      const head = (t: string) => t.replace(/ ([^ ]*)$/, "\n$1");
+      [head(b.bud), head(b.act), "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(sHR + 1, c0 + i).value = v));
     });
     for (let r = sHR; r <= sHR + 1; r++) {
       for (let c = 1; c <= sLast; c++) {
@@ -303,7 +307,8 @@ export async function GET() {
       }
     }
     sh.getRow(sHR).height = 20;
-    sh.getRow(sHR + 1).height = 18;
+    // '26BP 예산', '8월 누계 실적' 같은 머리글은 좁아진 칸에서 두 줄로 접힌다 — 줄 높이를 그만큼 준다.
+    sh.getRow(sHR + 1).height = 30;
 
     // 구분별로 모은다 (본사/법인 × 구분).
     const sumBy = new Map<string, (b: Block) => Pair>();
@@ -440,12 +445,9 @@ export async function GET() {
         }
       }
     }
-    sh.getColumn(1).width = 10;
-    sh.getColumn(2).width = 14;
-    for (let c = sFirst; c <= sLast; c++) {
-      const off = (c - sFirst) % SB;
-      sh.getColumn(c).width = off >= 3 ? 9.5 : 12.5;
-    }
+    sh.getColumn(1).width = 7.5;
+    sh.getColumn(2).width = 9.2;
+    for (let c = sFirst; c <= sLast; c++) sh.getColumn(c).width = 9;
     // 보고월·보고월 누계·연간만 남기고 앞의 달들은 접어 둔다 — 필요하면 +를 눌러 펼친다.
     const openFrom = sFirst + sBlocks.findIndex((b) => b.kind === "month" && b.m === lastMonth) * SB;
     for (let c = sFirst; c < openFrom; c++) {
@@ -551,63 +553,61 @@ export async function GET() {
   const corpUses = useOrder.filter((u) => u.split(SEP)[0] !== "본사");
 
   /**
-   * 보고용 한 덩이. 행 접기는 두 단계다 —
-   *   2단계: 대계정 상세 → 구분 줄 아래로 접힘
-   *   1단계: 구분 줄    → 보고용 합계 아래로 접힘
-   * 소계가 늘 아래에 오므로 엑셀 기본(summaryBelow)과 맞는다.
+   * 보고용 한 덩이. 합계 줄이 묶음 위에 서고, 그 아래로 한 단씩 내려간다 —
+   *   보고용 합계 → 구분 줄 → 대계정 상세
+   * 엑셀 개요도 summaryBelow=false로 맞춰 두어 +/- 단추가 합계 줄에 붙는다.
    *
-   * 파일은 2단계(상세가 접힌 모습)로 열리므로, 접었을 때 보이는 줄은 구분 줄뿐이다.
-   * 그래서 대조직은 구분 줄에도 적는다 — 한 보고용 안에 '지급수수료'가 대조직만 달리해
+   * 파일은 2단계(상세가 접힌 모습)로 열리므로 접었을 때 보이는 줄은 구분 줄뿐이다.
+   * 그래서 대조직도 구분 줄에 적는다 — 한 보고용 안에 '지급수수료'가 대조직만 달리해
    * 두 번 나오는 일이 있어서, 이게 없으면 접은 화면에서 둘을 구별할 수 없다.
    */
   function writeUseBlock(u: string) {
     const ks = byUse.get(u)!;
     const [hq, useName] = u.split(SEP);
-    const catRows: number[] = [];
-    const blockFirstRow = row;
-    let prevOrg = "";
-    let prevCatOrg = "";
-    let i = 0;
-    while (i < ks.length) {
+
+    // 합계 줄이 위에 서므로 줄 번호를 먼저 잡아 둬야 한다 — 먼저 묶음을 쪼갠다.
+    const groups: { org: string; cat: string; ks: string[] }[] = [];
+    for (let i = 0; i < ks.length; ) {
       const [, , org, cat] = parts(ks[i]);
-      const group: string[] = [];
+      const g: string[] = [];
       while (i < ks.length) {
         const [, , o2, c2] = parts(ks[i]);
         if (o2 !== org || c2 !== cat) break;
-        group.push(ks[i]);
+        g.push(ks[i]);
         i++;
       }
+      groups.push({ org, cat, ks: g });
+    }
+
+    const useRow = row++;
+    const catRows: number[] = [];
+    let prevOrg = "";
+    for (const g of groups) {
+      const catRow = row++;
       const detailRows: number[] = [];
-      group.forEach((k, j) => {
-        const [, , , , acct] = parts(k);
-        if (j === 0 && org !== prevOrg) ws.getCell(row, 2).value = org;
-        if (j === 0) ws.getCell(row, 3).value = cat;
-        ws.getCell(row, 4).value = acct;
+      for (const k of g.ks) {
+        ws.getCell(row, 4).value = parts(k)[4];
         writeNumbers(row, dataOf(k));
         ws.getRow(row).outlineLevel = 2;
         ws.getRow(row).hidden = true;   // 2단계로 접힌 채 열린다
         setCollapsed(row, false);
         detailRows.push(row);
-        prevOrg = org;
         row++;
-      });
-      if (org !== prevCatOrg) ws.getCell(row, 2).value = org;
-      prevCatOrg = org;
-      ws.getCell(row, 4).value = cat;
-      writeSum(row, detailRows);
-      paint(row, GRP_CAT, INK, 10);
-      ws.getRow(row).outlineLevel = 1;
-      setCollapsed(row, true);
-      catRows.push(row);
-      row++;
+      }
+      if (g.org !== prevOrg) ws.getCell(catRow, 2).value = g.org;
+      prevOrg = g.org;
+      ws.getCell(catRow, 4).value = g.cat;
+      writeSum(catRow, detailRows);
+      paint(catRow, GRP_CAT, INK, 10);
+      ws.getRow(catRow).outlineLevel = 1;
+      setCollapsed(catRow, true);
+      catRows.push(catRow);
     }
-    ws.getCell(blockFirstRow, 1).value = useName;
-    ws.getCell(row, 1).value = `${useName} 합계`;
-    ws.mergeCells(row, 1, row, 4);
-    writeSum(row, catRows);
-    paint(row, GRP_USE, NAVY, 10.5);
-    useRowsOf[hq === "본사" ? "본사" : "법인"].push(row);
-    row++;
+    ws.getCell(useRow, 1).value = `${useName} 합계`;
+    ws.mergeCells(useRow, 1, useRow, 4);
+    writeSum(useRow, catRows);
+    paint(useRow, GRP_USE, NAVY, 10.5);
+    useRowsOf[hq === "본사" ? "본사" : "법인"].push(useRow);
   }
 
   // 본사 묶음 → 본사 합계 → 법인 묶음 → 법인 합계 → 총 합계.
@@ -651,15 +651,18 @@ export async function GET() {
     }
   }
 
-  ws.getColumn(1).width = 15;
-  ws.getColumn(2).width = 13;
-  ws.getColumn(3).width = 11;
-  ws.getColumn(4).width = 20.5;
+  // 키 열은 들어갈 글자에 맞춰 재고, 데이터 열은 전부 한 폭으로 맞춘다 — 눈에 고르게 보여야 한다.
+  // 폭은 엑셀 자동 맞춤으로 잰 '필요한 폭'에 여유만 얹은 값이다(데이터 열 최대 8.1 -> 8.5).
+  // 1열은 보고용 합계가 A:D로 병합되므로 좁아도 글자가 잘리지 않는다. 3열은 구분 이름이
+  // 대계정 칸에 적히므로 머리글만 들어가면 된다.
+  ws.getColumn(1).width = 10;
+  ws.getColumn(2).width = 11.5;
+  ws.getColumn(3).width = 5.5;
+  ws.getColumn(4).width = 20;
   for (let c = firstCol; c <= lastCol; c++) {
     const off = (c - firstCol) % BLOCK;
     const col = ws.getColumn(c);
-    // 백만원으로 줄여 보이므로 자릿수가 짧다. '계'와 '차이'만 한 칸 넓게 둔다.
-    col.width = off === 7 ? 9 : off === 2 || off === 5 || off === 6 ? 11.5 : 10.5;
+    col.width = 9;
     // 국내·해외는 접은 채로 연다 — 펼치면 나뉜 금액이, 접으면 '계'만 보인다.
     // 접힘 표시는 묶음 바로 오른쪽('계')이 들고 있어야 +/- 단추가 맞게 그려진다.
     const grouped = off === 0 || off === 1 || off === 3 || off === 4;
