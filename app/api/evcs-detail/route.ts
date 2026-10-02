@@ -763,7 +763,9 @@ export async function GET() {
     col.width = 9;
     // 국내·해외는 접은 채로 연다 — 펼치면 나뉜 금액이, 접으면 '계'만 보인다.
     // 접힘 표시는 묶음 바로 오른쪽('계')이 들고 있어야 +/- 단추가 맞게 그려진다.
-    const grouped = off === 0 || off === 1 || off === 3 || off === 4;
+    // 연간은 한 칸짜리 블록이라 자리가 0이다 — 묶음 규칙에 걸려 숨지 않도록 먼저 걸러 낸다.
+    const grouped =
+      blocks[blockAt[c]].kind !== "year" && (off === 0 || off === 1 || off === 3 || off === 4);
     if (grouped) { col.outlineLevel = 1; col.hidden = true; }
     Object.defineProperty(col, "collapsed", { value: !grouped && (off === 2 || off === 5), configurable: true });
   }
