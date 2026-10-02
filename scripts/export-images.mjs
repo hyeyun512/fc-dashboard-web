@@ -57,14 +57,14 @@ const CHROME = CHROME_CANDIDATES.find((p) => existsSync(p));
 if (!CHROME) throw new Error("크롬(또는 엣지)을 찾지 못했습니다.");
 
 /**
- * Summary 탭은 1. Humax 전체 · 2. 전체 · 상세 · 3. EVCS 사업부 세 장을 이어 보여 주므로,
- * 그 탭을 통째로 찍으면 세 장이 한 장의 그림으로 나온다 (2026-10-01 지시).
+ * 보고 메일에 붙이는 그림은 1. Humax 전체 · 2. 전체 · 상세 · 3. EVCS 사업부 세 장을
+ * 이어 붙인 한 장이다 (2026-10-01 지시). also에 적은 장을 함께 펼쳐 통째로 찍는다.
  * whole=true는 '탭 하나가 아니라 화면에 나온 것 전부를 찍는다'는 표시다.
  *
  * 배부액 추이는 App4로 옮겨가 보고 메일에서 뺀다 — 부록은 메일에 붙이지 않고 대시보드에서 본다.
  */
 const SHEETS = [
-  { tab: "main", name: "Summary(1~3)", whole: true },
+  { tab: "sum-total", also: ["sum-detail", "sum-evcs"], name: "Summary(1~3)", whole: true },
 ];
 
 /** 열람 암호 — .env.local의 DASHBOARD_PASSWORD를 쓴다 (쿠키에는 해시만 담긴다). */
@@ -127,8 +127,7 @@ const EXPORT_CSS = `
   #tab-sum-evcs .section-lead .sub{font-size:11.5px}
   .detail-trend-wrap{height:320px}
   /* Summary는 세 장을 이어 찍으므로, 장과 장 사이가 붙어 보이지 않게 띄운다. */
-  #tab-main.active ~ #tab-sum-detail,
-  #tab-main.active ~ #tab-sum-evcs{padding-top:30px!important;margin-top:14px!important}
+  #tab-sum-detail,#tab-sum-evcs{border-top:0.5px solid #e2e8f0;padding-top:30px!important;margin-top:14px!important}
   /* 마지막 요소 아래 여백은 그림 밑에 빈 띠로 남는다. */
   .content > *:last-child{margin-bottom:0!important}
   .sum-block:last-child{margin-bottom:0!important}
@@ -259,9 +258,20 @@ console.log(`보고 월 ${month} · 배치 ${WIDTH}px × 확대 ${ZOOM}배 = 붙
 const pasteBlocks = [];
 
 for (const sheet of SHEETS) {
-  await evaluate(`document.querySelector('.tab[data-tab=${JSON.stringify(sheet.tab)}]').click()`);
-  // 탭을 열 때 그려지는 그래프가 있어, 그리기가 끝날 때까지 한 박자 기다린다.
-  await sleep(2200);
+  // 차트는 그 장이 '활성'일 때만 그려진다 — 이어 붙여 찍을 장들을 한 번씩 열어 미리 그려 둔다.
+  for (const t of [...(sheet.also ?? []), sheet.tab]) {
+    await evaluate(`document.querySelector('.tab[data-tab=${JSON.stringify(t)}]').click()`);
+    await sleep(2200);
+  }
+  // 그런 다음 함께 찍을 장을 모두 펼친다 (탭 하나만 보이는 평소 규칙을 이때만 푼다).
+  if (sheet.also?.length) {
+    await evaluate(`(() => {
+      const ids = ${JSON.stringify([sheet.tab, ...sheet.also])};
+      for (const id of ids) document.getElementById('tab-' + id).style.display = 'block';
+      return true;
+    })()`);
+    await sleep(900);
+  }
 
   const size = await evaluate(`(() => {
     const live = (${JSON.stringify(!!sheet.whole)}

@@ -182,7 +182,7 @@ export const SUMMARY_DETAIL_GROUPS: Record<string, SummaryCommentGroup[]> = {
       lines: [
         "[지급수수료]",
         "New Aura/iWedia 외주개발용역비 518백만 추가 집행 가능성 있음 (SW이슈로 지연)",
-        "Charter Legal fee/B&M Legal fee 127백만 집행 (소송 재개)",
+        "Charter Legal fee/B&M 127백만 집행 (소송 재개)",
       ],
     },
     {
@@ -211,7 +211,7 @@ export const SUMMARY_DETAIL_GROUPS: Record<string, SummaryCommentGroup[]> = {
       lines: [
         "[지급수수료]",
         "외주개발용역비 누계 229백만(집행률 30%) — 예산 대비 523백만 미집행 (New Aura/iWedia SW이슈로 지연)",
-        "Charter Legal fee/B&M Legal fee 8월 79백만 추가 집행 (누계 206백만, 소송 재개)",
+        "Charter Legal fee/B&M 8월 79백만 추가 집행 (누계 206백만, 소송 재개)",
       ],
     },
     {
@@ -220,8 +220,8 @@ export const SUMMARY_DETAIL_GROUPS: Record<string, SummaryCommentGroup[]> = {
         "[인건비]",
         "주식보상비용 250백만 집행 (예산 외, 일회성)",
         "[지급수수료]",
-        "8월 HBR 703백만 집행 (HBR Artur 세액공제 매각 중개수수료 650백만, HBR CTJ 법정 대표자 보수 54백만)",
-        "합병 자문·평가 수수료 누계 482백만 집행 (7월 350백만, 8월 131백만)",
+        "8월 HBR 703백만 집행 (tax credit 매각 수수료 650백만, Ciro 성공보수 54백만)",
+        "합병 자문·평가 수수료 누계 506백만 집행 (1월 10백만, 4월 15백만, 7월 350백만, 8월 131백만)",
         "특허처리비 104백만 초과 집행 (VVC 예산 누락 영향)",
       ],
     },
@@ -388,7 +388,7 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
     humax_total_cum: [
       "누계 실적 8,043백만(집행률 95%) — 예산 내 집행",
       "본사 5,646백만(집행률 90%) 예산 대비 미집행 · 법인 2,397백만(집행률 110%) 초과 — 방향 엇갈림",
-      "항목별 집행률: 예산 초과 HUMAX(공통) 116%, MOBILITY 143% / 예산 미집행 STB 72%, 건물 94%",
+      "항목별 집행률: 예산 초과 MOBILITY 143%, HUMAX(공통) 116% / 예산 미집행 STB 72%, 건물 94%",
     ],
     evcs: [
       "누계 실적 3,770백만(집행률 97%) · 연간 예산의 26% — 3개월 경과 진도(25%) 부합",
@@ -405,7 +405,7 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
     humax_total_cum: [
       "누계 실적 10,568백만(집행률 95%) — 예산 내 집행",
       "본사 7,514백만(집행률 91%) 예산 대비 미집행 · 법인 3,055백만(집행률 109%) 초과 — 방향 엇갈림",
-      "항목별 집행률: 예산 초과 HUMAX(공통) 115%, EVCS(국내) 107% / 예산 미집행 건물 81%, STB 83%, EVCS(해외) 92%",
+      "항목별 집행률: 예산 초과 EVCS(국내) 107%, HUMAX(공통) 115% / 예산 미집행 STB 83%, EVCS(해외) 92%, 건물 81%",
     ],
     evcs: [
       "누계 실적 4,972백만(집행률 95%) · 연간 예산의 34% — 4개월 경과 진도(33%) 부합",
@@ -422,7 +422,7 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
     humax_total_cum: [
       "누계 실적 13,012백만(집행률 97%) — 예산 내 집행",
       "본사 9,318백만(집행률 93%) 예산 대비 미집행 · 법인 3,694백만(집행률 108%) 초과 — 방향 엇갈림",
-      "항목별 집행률: 예산 초과 HUMAX(공통) 121%, EVCS(국내) 110% / 예산 미집행 건물 72%, STB 85%, EVCS(해외) 92%",
+      "항목별 집행률: 예산 초과 EVCS(국내) 110%, HUMAX(공통) 121% / 예산 미집행 STB 85%, EVCS(해외) 92%, 건물 72%",
     ],
     evcs: [
       "누계 실적 6,161백만(집행률 96%) · 연간 예산의 42% — 5개월 경과 진도(42%) 부합",
@@ -436,8 +436,8 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
     ],
     humax_total_cum: [
       "예산 대비 실적 집행률: 합계 15,549백만(97%), 본사 11,065백만(92%), 법인 4,484백만(112%)",
-      "-예산 초과: HUMAX(공통) 119%(주식보상 비용, VVC특허처리비 등) EVCS(국내) 108%",
-      "-예산 미집행: 건물 67%(1Q 94%, 2Q 41%), STB 90%, EVCS(해외) 94%",
+      "-예산 초과: EVCS(국내) 108%, HUMAX(공통) 119%(주식보상 비용, VVC특허처리비 등)",
+      "-예산 미집행: STB 90%, EVCS(해외) 94%, 건물 67%(1Q 94%, 2Q 41%)",
     ],
     evcs: [
       "예산 대비 실적 집행률: 합계 7,440백만(97%), 본사 5,487백만(95%), 법인 1,953백만(104%)",
@@ -451,8 +451,8 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
     ],
     humax_total_cum: [
       "예산 대비 실적 집행률: 합계 18,210백만(98%), 본사 13,097백만(94%), 법인 5,112백만(111%)",
-      "-예산 초과: HUMAX(공통) 127%(합병 자문·평가 수수료, 주식보상 비용, VVC특허처리비 등) EVCS(국내) 108%",
-      "-예산 미집행: 건물 64%(1Q 94%, 2Q 41%, 7월 50%), STB 94%, EVCS(해외) 91%",
+      "-예산 초과: EVCS(국내) 108%, HUMAX(공통) 127%(합병 자문·평가 수수료, 주식보상 비용, VVC특허처리비 등)",
+      "-예산 미집행: STB 94%, EVCS(해외) 91%, 건물 64%(1Q 94%, 2Q 41%, 7월 50%)",
     ],
     evcs: [
       "예산 대비 실적 집행률: 합계 8,524백만(95%), 본사 6,335백만(92%), 법인 2,189백만(102%)",
@@ -463,12 +463,12 @@ export const SUMMARY_COMMENTS: Record<string, Partial<Record<SummaryCommentKey, 
   "8월": {
     humax_total_month: [
       "예산 대비 실적 집행률: 합계 2,976백만(120%), 본사 1,825백만(95%), 법인 1,152백만(204%)",
-      "-법인 초과: HBR 지급수수료 703백만 집행 — HBR Artur 세액공제 매각 중개수수료 650백만, HBR CTJ 법정 대표자 보수 54백만",
+      "-법인 초과: HBR tax credit 매각 수수료 650백만, Ciro 성공보수 54백만",
     ],
     humax_total_cum: [
       "예산 대비 실적 집행률: 합계 21,186백만(100%), 본사 14,922백만(94%), 법인 6,264백만(121%)",
-      "-예산 초과: HUMAX(공통) 141%(HBR 지급수수료, 합병 자문·평가 수수료 등) EVCS(국내) 108%",
-      "-예산 미집행: 건물 63%(1Q 94%, 2Q 41%, 3Q(7~8월) 51%), STB 95%, EVCS(해외) 90%",
+      "-예산 초과: EVCS(국내) 108%, HUMAX(공통) 141%(HBR 지급수수료, 합병 자문·평가 수수료 등)",
+      "-예산 미집행: STB 95%, EVCS(해외) 90%, 건물 63%(1Q 94%, 2Q 41%, 3Q(7~8월) 51%)",
     ],
     evcs: [
       "예산 대비 실적 집행률: 합계 9,566백만(94%), 본사 7,166백만(92%), 법인 2,400백만(100%)",

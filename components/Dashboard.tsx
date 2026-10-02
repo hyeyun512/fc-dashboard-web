@@ -98,10 +98,7 @@ export default function Dashboard({ data }: { data: DashboardData }) {
           data-tab 값은 손대지 않는다: 차트 id·인쇄 규칙·슬라이드가 모두 이 값을 붙잡고 있어,
           보이는 이름만 바꾸면 되는 자리에 내부 이름까지 바꾸면 고칠 곳이 사방으로 번진다. */}
       <div className="tab-bar">
-        <div className="tab tab-summary-lv active" data-tab="main">
-          Summary
-        </div>
-        <div className="tab tab-summary-lv" data-tab="sum-total">
+        <div className="tab tab-summary-lv active" data-tab="sum-total">
           1. Humax 전체
         </div>
         <div className="tab tab-summary-lv" data-tab="sum-detail">
@@ -147,15 +144,10 @@ export default function Dashboard({ data }: { data: DashboardData }) {
         <span className="hint">← → 키로도 이동</span>
       </div>
 
-      {/* ===================== Summary — 세 장을 한 시트에서 이어 본다 =====================
-          이 장은 제 내용을 갖지 않는다. Humax합계 · EVCS사업부 · Humax합계_상세 세 장을 그대로
-          이어 붙여, 탭을 짚지 않고 스크롤만으로 내려보게 하는 자리다 (2026-09-30 지시).
-          붙이는 일은 globals.css의 '#tab-main.active ~ …' 규칙이 하므로 여기는 비워 둔다 —
-          마크업을 복제하지 않는 덕에 숫자도 차트도 한 벌만 존재한다. */}
-      <div id="tab-main" className="content active" />
+
 
       {/* ===================== SUMMARY① Humax합계 ===================== */}
-      <div id="tab-sum-total" className="content">
+      <div id="tab-sum-total" className="content active">
         <div className="sheet-hd">
           <div className="sheet-hd-bar" style={{ background: "#1d4ed8" }} />
           <div>

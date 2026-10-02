@@ -35,7 +35,7 @@ const HQ_ORDER: Record<string, number> = { 본사: 0, 법인: 1 };
 const PREFERRED_HQ_DEPT_ORDER = ["1. 사업 그룹", "2. 개발 그룹", "3. SCM 부문", "4. Media그룹", "5. Staff부문"];
 const PREFERRED_STAFF_SUBORG_ORDER = ["CEO", "Staff(CEO)", "경영지원실", "HR실"];
 const STAFF_SUBORG_LABEL: Record<string, string> = {};
-const PREFERRED_CORP_COMPANY_ORDER = ["HUS", "HMX", "HUK", "HDG", "HUG", "HTR", "HBR", "HJP", "HTH", "HAU", "HID", "HSZ"];
+import { CORP_GROUPS, CORP_OTHER_LABEL } from "./corpGroups";
 
 type Row = {
   month: string;
@@ -156,7 +156,6 @@ export async function loadDashboardData(): Promise<DashboardData> {
   for (const code of corpCompanySet) hqDeptSet.delete(code);
   const hqDeptOrder = orderedUnique(hqDeptSet, PREFERRED_HQ_DEPT_ORDER);
   const staffSubOrder = orderedUnique(staffSubSet, PREFERRED_STAFF_SUBORG_ORDER);
-  const corpCompanyOrder = orderedUnique(corpCompanySet, PREFERRED_CORP_COMPANY_ORDER);
 
   // 대계정(re) -> 구분(category) 매핑 (한 대계정은 하나의 구분에만 속함).
   const mainAccountCategory = new Map<string, string>();
@@ -573,9 +572,18 @@ export async function loadDashboardData(): Promise<DashboardData> {
     }
     const corpRows = rows.filter((r) => effectiveAllocHq(r) === "법인");
     board.push(allocationRow("법인", 0, corpRows));
-    for (const co of corpCompanyOrder) {
-      const coRows = corpRows.filter((r) => (r.report_use_re || r.company || "미분류") === co);
-      board.push(allocationRow(co, 1, coRows));
+    // 법인 행은 CORP_GROUPS가 정한 차례와 묶음으로만 세운다 (HDG는 HUK에, 소액 법인은 '기타'에).
+    const codeOf = (r: Row) => r.report_use_re || r.company || "미분류";
+    const grouped = new Set(CORP_GROUPS.flatMap((g) => g.codes));
+    for (const g of CORP_GROUPS) {
+      const coRows = corpRows.filter((r) => g.codes.includes(codeOf(r)));
+      // 올해 쓰지 않은 법인은 줄만 차지하므로, 예산·실적 어디에도 없으면 세우지 않는다.
+      if (!g.codes.some((c) => corpCompanySet.has(c))) continue;
+      board.push(allocationRow(g.label, 1, coRows));
+    }
+    const otherRows = corpRows.filter((r) => !grouped.has(codeOf(r)));
+    if ([...corpCompanySet].some((c) => !grouped.has(c))) {
+      board.push(allocationRow(CORP_OTHER_LABEL, 1, otherRows));
     }
     board.push(allocationRow("Total", 0, rows));
     return board;
@@ -621,12 +629,24 @@ export async function loadDashboardData(): Promise<DashboardData> {
         const co = r.report_use_re || r.company || "미분류";
         coBud.set(co, (coBud.get(co) || 0) + n(r.amount_krw));
       }
+      // 지급수수료 조직별 상세도 배부판과 같은 묶음·차례로 읽는다 (App1 · App3).
       const companies = new Set([...coAct.keys(), ...coBud.keys()]);
-      byCompany = orderedUnique(companies, PREFERRED_CORP_COMPANY_ORDER).map((c) => ({
-        company: c,
-        actual: coAct.get(c) || 0,
-        budget: coBud.get(c) || 0,
+      const grouped = new Set(CORP_GROUPS.flatMap((g) => g.codes));
+      const sumOf = (m: Map<string, number>, codes: string[]) =>
+        codes.reduce((t, c) => t + (m.get(c) || 0), 0);
+      byCompany = CORP_GROUPS.filter((g) => g.codes.some((c) => companies.has(c))).map((g) => ({
+        company: g.label,
+        actual: sumOf(coAct, g.codes),
+        budget: sumOf(coBud, g.codes),
       }));
+      const rest = [...companies].filter((c) => !grouped.has(c));
+      if (rest.length) {
+        byCompany.push({
+          company: CORP_OTHER_LABEL,
+          actual: sumOf(coAct, rest),
+          budget: sumOf(coBud, rest),
+        });
+      }
     }
 
     return { org: label, level, actual, budget, byAccount, monthly, byCompany };

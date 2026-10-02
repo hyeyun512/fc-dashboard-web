@@ -13,6 +13,7 @@ import type {
   EvcsBlock,
 } from "./types";
 import { ALLOC_TREND_ADJUSTMENTS } from "./trendAdjustments";
+import { CORP_OTHER_CODES, CORP_OTHER_LABEL } from "./corpGroups";
 import {
   SUMMARY_TREND_MEMOS,
   SUMMARY_TREND_GROUPS,
@@ -278,16 +279,6 @@ export function initDashboard(data: DashboardData): () => void {
     const e = el("tab-" + tabId);
     return !!e && e.classList.contains("active");
   }
-  /**
-   * Summary 장은 제 요약 아래로 Humax합계 · EVCS사업부 · Humax합계_상세 세 장을 그대로 이어 붙여,
-   * 화면에서 스크롤만으로 상세까지 내려보게 한다 (2026-09-30 지시). 마크업을 복제하지 않고 원래 장을
-   * 드러내는 방식이라 숫자도 차트도 한 벌만 존재한다 — 대신 그 세 장은 'active' 표시가 없는 채로
-   * 화면에 나와 있으므로, 차트를 '나중에'로 미뤄 두면 빈 칸으로 남는다. 그래서 따로 가려 본다.
-   */
-  const MAIN_COMPANION_TABS = ["sum-total", "sum-evcs", "sum-detail"];
-  function isShown(tabId: string): boolean {
-    return isActive(tabId) || (isActive("main") && MAIN_COMPANION_TABS.includes(tabId));
-  }
   function destroyChart(id: string) {
     if (charts[id]) {
       try {
@@ -319,14 +310,14 @@ export function initDashboard(data: DashboardData): () => void {
         showChartError(id);
       }
     };
-    if (isShown(tabId)) run();
+    if (isActive(tabId)) run();
     else (CHART_BUILDERS[tabId] = CHART_BUILDERS[tabId] || []).push(run);
   }
 
   // 상단 당월/누계 토글이 아무 효과가 없는 탭에서는 토글을 숨긴다 — 눌러도 숫자가 안 바뀌면 혼동을 준다.
   // Summary①·②는 당월과 누계를 항상 한 화면에 함께 보여주기 때문이고,
   // Summary③·④는 누계 기준으로만 읽도록 고정했기 때문이다 (getCumScope 참고).
-  const MODE_TOGGLE_HIDDEN_TABS = ["main", "sum-total", "sum-evcs", "sum-detail", "sum-trend"];
+  const MODE_TOGGLE_HIDDEN_TABS = ["sum-total", "sum-evcs", "sum-detail", "sum-trend"];
   function updateModeToggleVisibility(tabId: string) {
     const box = el("modeFilterBox");
     if (box) box.style.display = MODE_TOGGLE_HIDDEN_TABS.includes(tabId) ? "none" : "";
@@ -339,13 +330,8 @@ export function initDashboard(data: DashboardData): () => void {
     updateModeToggleVisibility(id);
     updateSlideNav();
     requestAnimationFrame(() => {
-      // Summary로 올 때는 아래에 딸려 나오는 세 장의 차트도 함께 그린다 — 다른 장에 있는 동안
-      // 보고 월을 바꿔 두면 그 세 장의 차트가 '나중에'로 밀려 있어, 흘려두면 빈 칸으로 보인다.
-      const pending = id === "main" ? [id, ...MAIN_COMPANION_TABS] : [id];
-      pending.forEach((t) => {
-        (CHART_BUILDERS[t] || []).forEach((fn) => fn());
-        CHART_BUILDERS[t] = [];
-      });
+      (CHART_BUILDERS[id] || []).forEach((fn) => fn());
+      CHART_BUILDERS[id] = [];
     });
   }
   function onTabClick(ev: Event) {
@@ -353,7 +339,7 @@ export function initDashboard(data: DashboardData): () => void {
   }
   const tabEls = Array.from(document.querySelectorAll<HTMLElement>(".tab"));
   tabEls.forEach((t) => t.addEventListener("click", onTabClick));
-  updateModeToggleVisibility("main");
+  updateModeToggleVisibility("sum-total");
 
   // ================= 슬라이드 쇼 =================
   // 탭 하나가 슬라이드 하나다. 보고 자리에서 마우스로 탭을 짚지 않고 좌우 키만으로 넘길 수 있게 한다.
@@ -1561,7 +1547,7 @@ export function initDashboard(data: DashboardData): () => void {
     setText("sumTotalMonthTitle", `${currentMonth} 실적`);
     setText("sumTotalCumTitle", `${currentMonth} 누계 실적`);
     setText("sumTotalMonthSub", "백만원");
-    setText("sumTotalCumSub", `${months[0]}~${currentMonth} · 백만원`);
+    setText("sumTotalCumSub", "백만원");
     setHtml("sumTotalMonthTable", allocTotalTable(m.allocationBoard.actual));
     setHtml("sumTotalCumTable", allocTotalTable(cum.allocationBoard.actual));
     renderSummaryBox("sumTotalMonthComment", "humax_total_month");
@@ -1576,28 +1562,13 @@ export function initDashboard(data: DashboardData): () => void {
     queueChart("sum-total", "sumTotalCumDonut", () => allocDonut("sumTotalCumDonut", ALLOC_DONUT_LABELS, cumVals));
   }
 
-  /** 비중이 작아 개별로 볼 필요가 없는 법인 — '기타' 한 행으로 묶고, 어떤 법인인지는 표 아래 각주로 밝힌다. */
-  const MINOR_CORPS = ["HTR", "HDG", "HAU"];
-  const MINOR_CORP_LABEL = "기타";
-  function mergeAllocRows(rows: AllocationRow[]): AllocValues13 & { humaxTotal: number } {
-    const merged: AllocValues13 & { humaxTotal: number } = {
-      stb: 0, mobility: 0, evcsDomestic: 0, evcsOverseas: 0, humaxCommon: 0, building: 0,
-      hMobility: 0, hEv: 0, hiparking: 0, peoplecar: 0, winercom: 0, holdings: 0, hNetworks: 0,
-      humaxTotal: 0,
-    };
-    for (const f of ALLOC_FIELDS) merged[f] = rows.reduce((s, r) => s + r[f], 0);
-    merged.humaxTotal = rows.reduce((s, r) => s + r.humaxTotal, 0);
-    return merged;
-  }
-  /** Summary③의 법인 행 목록 (소액 법인은 한 행으로 병합). */
+  /**
+   * Summary③의 법인 행 목록. 묶음(HDG는 HUK에, 소액 법인은 '기타')과 차례는 배부판을 만들 때
+   * aggregate.ts의 CORP_GROUPS가 이미 끝내 두었으므로, 여기서는 그대로 받아 적기만 한다 —
+   * 화면에서 한 번 더 묶으면 장마다 묶는 기준이 갈라진다.
+   */
   function corpDetailRowsOf(board: AllocationRow[]): SumDetailRow[] {
-    const corpRows = corpCompanyRows(board);
-    const minor = corpRows.filter((r) => MINOR_CORPS.includes(r.label));
-    const out: SumDetailRow[] = corpRows
-      .filter((r) => !MINOR_CORPS.includes(r.label))
-      .map((r) => ({ label: r.label, alloc: r, indent: true }));
-    if (minor.length) out.push({ label: MINOR_CORP_LABEL, alloc: mergeAllocRows(minor), indent: true });
-    return out;
+    return corpCompanyRows(board).map((r) => ({ label: r.label, alloc: r, indent: true }));
   }
 
   function renderSumDetail() {
@@ -1610,7 +1581,7 @@ export function initDashboard(data: DashboardData): () => void {
     if (!total || !hq || !corp) return;
     // 제목이 곧 기준 기간 — 누계 고정이므로 "6월 누계 실적"으로만 적는다.
     setText("sumDetailTitle", `${currentMonth} 누계 실적`);
-    setText("sumDetailSub", `${months[0]}~${currentMonth} · 백만원`);
+    setText("sumDetailSub", "백만원");
 
     // 본사 구분별(인건비~기타) STB~건물 배부 내역 — 더 이상 "합계" 한 칸만이 아니라 전체 열을 채운다.
     const hqCatRows: SumDetailRow[] = scope.hqCategoryAlloc.map((c) => ({ label: c.category, alloc: c, indent: true }));
@@ -1723,9 +1694,9 @@ export function initDashboard(data: DashboardData): () => void {
     renderSummaryDetailBox("trendComment", SUMMARY_TREND_GROUPS);
 
     // '기타'로 묶은 법인이 무엇인지 표 아래 각주로 밝힌다.
-    const hasMinor = corpCompanyRows(board).some((r) => MINOR_CORPS.includes(r.label));
     // 본사 구분에도 '기타'가 있으므로 "법인의 기타"로 명확히 적는다.
-    setText("sumDetailNote", hasMinor ? `* 법인의 ${MINOR_CORP_LABEL} = ${MINOR_CORPS.join(", ")} (비중이 작아 합산 표기)` : "");
+    const hasOther = corpCompanyRows(board).some((r) => r.label === CORP_OTHER_LABEL);
+    setText("sumDetailNote", hasOther ? `* 법인의 ${CORP_OTHER_LABEL} = ${CORP_OTHER_CODES.join(", ")} 합계` : "");
   }
 
   // ================= SUMMARY② EVCS사업부 =================
@@ -1801,7 +1772,7 @@ export function initDashboard(data: DashboardData): () => void {
     renderSummaryBox("evcsComment", "evcs");
 
     // 구분별 금액 규모 — 누계 실적 기준 구성비 도넛, 본사/법인 각각.
-    setText("sumEvcsSub", `${data.byMonth[currentMonth].cumulative.label} 실적 기준 · 백만원`);
+    setText("sumEvcsSub", "백만원");
     renderEvcsCatDonut("본사", "Hq");
     renderEvcsCatDonut("법인", "Corp");
   }
