@@ -630,8 +630,9 @@ export async function GET() {
    *   보고용 합계 → (대조직 합계) → 구분 줄 → 대계정 상세
    * 엑셀 개요도 summaryBelow=false로 맞춰 두어 +/- 단추가 합계 줄에 붙는다.
    *
-   * 대조직 단은 Staff부문에만 선다. 나머지 보고용은 대조직이 없으므로 보고용 합계가 구분 줄을
-   * 바로 더하고, 그만큼 접기 단계도 한 단 얕다.
+   * 대조직 합계(Staff부문)는 구분 줄과 같은 단에 둔다. 더하는 차례로는 한 단 위지만, 접기 단을
+   * 따로 주면 Staff부문만 4단이 되어 장 전체의 단수가 어긋난다. 접기는 세 단으로 고정한다 —
+   * 보고용 합계 / 그 속(대조직 합계·구분) / 대계정 상세.
    *
    * 파일은 대계정 상세만 접힌 채로 열린다.
    */
@@ -673,7 +674,7 @@ export async function GET() {
         for (const k of g.ks) {
           ws.getCell(row, 4).value = parts(k)[4];
           writeNumbers(row, dataOf(k));
-          ws.getRow(row).outlineLevel = hasOrg ? 3 : 2;
+          ws.getRow(row).outlineLevel = 2;
           ws.getRow(row).hidden = true;   // 상세는 접힌 채로 열린다
           setCollapsed(row, false);
           detailRows.push(row);
@@ -682,7 +683,7 @@ export async function GET() {
         ws.getCell(catRow, 4).value = g.cat;
         writeSum(catRow, detailRows);
         paint(catRow, GRP_CAT, INK, 10);
-        ws.getRow(catRow).outlineLevel = hasOrg ? 2 : 1;
+        ws.getRow(catRow).outlineLevel = 1;
         setCollapsed(catRow, true);
         catRows.push(catRow);
       }
@@ -765,7 +766,7 @@ export async function GET() {
     Object.defineProperty(col, "collapsed", { value: !grouped && (off === 2 || off === 5), configurable: true });
   }
   ws.properties.outlineLevelCol = 1;
-  ws.properties.outlineLevelRow = 3;   // Staff부문은 대조직 단이 하나 더 있다
+  ws.properties.outlineLevelRow = 2;
 
   // ── 요약 맨 아래 검토 줄 ────────────────────────────────────────────────────
   // 요약의 Total이 팀별의 '총 합계'와 맞는지 엑셀이 직접 보게 한다. 두 장은 묶는 단위가 달라
