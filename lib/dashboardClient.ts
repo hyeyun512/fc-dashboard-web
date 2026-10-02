@@ -334,16 +334,19 @@ export function initDashboard(data: DashboardData): () => void {
       CHART_BUILDERS[id] = [];
     });
   }
-  /** 배부판에서 하위 행을 거느린 줄을 눌러 접고 편다. 표가 다시 그려져도 동작하도록 문서에 한 번만 건다. */
-  function onAllocFoldClick(ev: Event) {
-    const tr = (ev.target as HTMLElement).closest("tr[data-alloc-parent]") as HTMLElement | null;
+  /**
+   * 하위 행을 거느린 줄을 눌러 접고 편다 — 배부판의 Staff부문, 대계정별 상세의 '기타'가 쓴다.
+   * 표가 다시 그려져도 동작하도록 문서에 한 번만 건다.
+   */
+  function onRowFoldClick(ev: Event) {
+    const tr = (ev.target as HTMLElement).closest("tr[data-fold-parent]") as HTMLElement | null;
     if (!tr) return;
-    const id = tr.dataset.allocParent!;
-    const open = !tr.classList.toggle("alloc-folded");
-    tr.closest("table")?.querySelectorAll<HTMLElement>(`tr[data-alloc-child="${id}"]`)
+    const id = tr.dataset.foldParent!;
+    const open = !tr.classList.toggle("row-folded");
+    tr.closest("table")?.querySelectorAll<HTMLElement>(`tr[data-fold-child="${id}"]`)
       .forEach((kid) => { kid.style.display = open ? "" : "none"; });
   }
-  document.addEventListener("click", onAllocFoldClick);
+  document.addEventListener("click", onRowFoldClick);
 
   function onTabClick(ev: Event) {
     activateTab((ev.currentTarget as HTMLElement).dataset.tab!);
@@ -868,25 +871,44 @@ export function initDashboard(data: DashboardData): () => void {
       if (last && last[0].category === r.category) last.push(r);
       else groups.push([r]);
     }
+    // 행이 많은 묶음은 머리줄(소계)을 달아 접을 수 있게 한다 — 지금은 '기타'뿐이지만,
+    // 다른 구분이 불어나도 같은 기준으로 접힌다. 기본은 펼친 상태(배부판의 Staff부문과 같다).
+    const FOLDABLE_FROM = 6;
+    let foldId = 0;
     const bodyGroups = groups
       .map((g) => {
+        const foldable = g.length >= FOLDABLE_FROM;
+        const fid = foldable ? `ma${foldId++}` : "";
+        let head = "";
+        if (foldable) {
+          const b = g.reduce((s2, r) => s2 + r.budget, 0);
+          const a = g.reduce((s2, r) => s2 + r.actual, 0);
+          const d = a - b;
+          head =
+            `<tr class="ma-head" data-fold-parent="${fid}">` +
+            `<td class="ma-cat"><span class="row-fold" aria-hidden="true"></span>${g[0].category}</td>` +
+            `<td>소계 (${g.length}개 계정)</td>` +
+            `<td${cls(b)}>${money(b)}</td><td${cls(a)}>${money(a)}</td>` +
+            `<td${diffCls(d)}>${money(d, { sign: true })}</td>` +
+            `<td class="badge-cell">${rateBadgeCell(rateOf(a, b))}</td><td></td></tr>`;
+        }
         const trs = g
           .map((r, i) => {
             const diff = r.actual - r.budget;
             // 묶음 머리에만 구분을 보여준다. 뒤따르는 행도 DOM에는 같은 글자를 남겨 두되
             // .ma-echo로 눈에서만 감춘다 — 읽어주기(스크린리더)와 복사한 표에서는 구분이 빠지지 않는다.
             const catCell =
-              i === 0
+              i === 0 && !foldable
                 ? `<td class="ma-cat">${r.category}</td>`
                 : `<td class="ma-cat"><span class="ma-echo">${r.category}</span></td>`;
-            return `<tr>${catCell}<td>${r.accountLabel}</td>
+            return `<tr${foldable ? ` data-fold-child="${fid}"` : ""}>${catCell}<td>${r.accountLabel}</td>
           <td${cls(r.budget)}>${money(r.budget)}</td><td${cls(r.actual)}>${money(r.actual)}</td>
           <td${diffCls(diff)}>${money(diff, { sign: true })}</td>
           <td class="badge-cell">${rateBadgeCell(rateOf(r.actual, r.budget))}</td>
           <td class="remark-cell"><span class="remark-clip">${mainAccountRemark(r)}</span></td></tr>`;
           })
           .join("");
-        return `<tbody class="ma-grp">${trs}</tbody>`;
+        return `<tbody class="ma-grp">${head}${trs}</tbody>`;
       })
       .join("");
     const totA = rows.reduce((sum, r) => sum + r.actual, 0);
@@ -1183,8 +1205,8 @@ export function initDashboard(data: DashboardData): () => void {
     });
     return {
       attr: (i) =>
-        hasKids.has(i) ? ` data-alloc-parent="${i}"` : parentOf.has(i) ? ` data-alloc-child="${parentOf.get(i)}"` : "",
-      mark: (i) => (hasKids.has(i) ? `<span class="alloc-fold" aria-hidden="true"></span>` : ""),
+        hasKids.has(i) ? ` data-fold-parent="${i}"` : parentOf.has(i) ? ` data-fold-child="${parentOf.get(i)}"` : "",
+      mark: (i) => (hasKids.has(i) ? `<span class="row-fold" aria-hidden="true"></span>` : ""),
     };
   }
 
@@ -1947,7 +1969,7 @@ export function initDashboard(data: DashboardData): () => void {
   renderAll();
 
   return () => {
-    document.removeEventListener("click", onAllocFoldClick);
+    document.removeEventListener("click", onRowFoldClick);
     monthSelect?.removeEventListener("change", onMonthChange);
     modeToggle?.removeEventListener("click", onModeToggleClick);
     tabEls.forEach((t) => t.removeEventListener("click", onTabClick));
