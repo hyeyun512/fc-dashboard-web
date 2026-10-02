@@ -121,81 +121,291 @@ export async function GET() {
   // ── 엑셀 틀 ─────────────────────────────────────────────────────────────────
   const wb = new ExcelJS.Workbook();
   wb.creator = "고정비 실적 대시보드";
-  const ws = wb.addWorksheet(`EVCS ${lastMonth}월 누계`, {
-    views: [{ state: "frozen", xSplit: 4, ySplit: 3 }],
+  // 시트 차례 — 요약이 먼저, 상세(팀별)가 뒤. 요약 탭은 빨갛게 칠해 눈에 먼저 띄게 한다.
+  const sh = wb.addWorksheet("요약", {
+    properties: { tabColor: { argb: "FFD93025" } },
+    pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
+  });
+  const ws = wb.addWorksheet("팀별", {
+    views: [{ state: "frozen", xSplit: 4, ySplit: 4 }],
     pageSetup: { orientation: "landscape", fitToPage: true, fitToWidth: 1, fitToHeight: 0 },
   });
 
-  const KEY_COLS = 4;                 // 보고용 · 대조직 · 구분 · 대계정
-  const BLOCK = 8;                    // 예산(국내·해외·계) 실적(국내·해외·계) 차이 집행률
-  const blocks = [...months.map((m) => ({ title: m, bud: "예산", act: "실적" })),
-                  { title: "연간", bud: "26BP 예산", act: `${lastMonth}월 누계 실적` }];
+  const KEY_COLS = 4;   // 보고용 · 대조직 · 구분 · 대계정
+  const BLOCK = 8;      // 예산(국내·해외·계) 실적(국내·해외·계) 차이 집행률
+  /**
+   * 블록 차례 — 월(1~보고월) → 누계(같은 기간끼리 예산 대비 실적) → 연간(26BP 대비 누계 실적).
+   * 누계가 연간 앞에 서는 이유는, 같은 기간끼리 견주는 것이 먼저이고 연간은 진도율이기 때문이다.
+   */
+  const blocks: { title: string; bud: string; act: string; kind: "month" | "cum" | "year" }[] = [
+    ...months.map((m) => ({ title: m, bud: "예산", act: "실적", kind: "month" as const })),
+    { title: `${lastMonth}월 누계`, bud: "누계 예산", act: "누계 실적", kind: "cum" as const },
+    { title: "연간", bud: "26BP 예산", act: `${lastMonth}월 누계 실적`, kind: "year" as const },
+  ];
   const firstCol = KEY_COLS + 1;
   const lastCol = KEY_COLS + blocks.length * BLOCK;
   const L = (c: number) => ws.getColumn(c).letter;
 
-  // 색 — 대시보드가 이미 쓰는 값만 쓴다.
-  const NAVY = "FF1E3A8A", INK = "FF1A202C", MUTE = "FF94A3B8";
+  const FONT = "나눔고딕";
+  const f = (o: Partial<ExcelJS.Font> = {}): Partial<ExcelJS.Font> => ({ name: FONT, size: 10, ...o });
+  const NAVY = "FF1E3A8A", INK = "FF1A202C";
   const HEAD_DARK = "FF1E3A8A", HEAD_MID = "FFDBEAFE", HEAD_SOFT = "FFEFF6FF";
   const GRP_CAT = "FFF8FAFC", GRP_USE = "FFEFF6FF", GRP_HQ = "FFDBEAFE";
   const thin = { style: "thin" as const, color: { argb: "FFD7DBE2" } };
-  const hair = { style: "hair" as const, color: { argb: "FFE8EBEF" } };
-  const box = { top: thin, left: thin, bottom: thin, right: thin };
+  const hair = { style: "hair" as const, color: { argb: "FFEDF0F3" } };
+  const edge = { style: "medium" as const, color: { argb: "FF9DB2CE" } };   // 월과 월 사이
+  const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
 
-  // ── 머리글 3줄 ──────────────────────────────────────────────────────────────
+  // 금액은 백만원 단위로 보인다 — 값은 원 그대로라 합계가 어긋나지 않는다(쉼표 두 개가 '백만으로 줄여 보이기').
+  // 음수는 빨강, 0은 '-'로 둔다.
+  // 백만원 단위 표기(값은 원 단위 그대로라 합계·수식과 대시보드 숫자가 어긋나지 않는다).
+  // 0은 '-'. 조건부 서식([>=500000] …)으로 반올림 0까지 '-'로 묶으려 해봤지만, 엑셀이 마지막 구역에
+  // 부호를 따로 붙여 작은 음수가 '--'로 나온다 — 그래서 조건 없이 세 구역만 쓴다.
+  const NUM = '#,##0,,;[Red]-#,##0,,;"-"';
+  const PCT = '0%;[Red]-0%;"-"';
+
+  // ── 제목 + 머리글 3줄 ───────────────────────────────────────────────────────
+  ws.getCell(1, 1).value = `EVCS 사업부 ${lastMonth}월 누계 실적 상세`;
+  ws.mergeCells(1, 1, 1, KEY_COLS);
+  ws.getCell(1, 1).font = f({ bold: true, size: 13, color: { argb: NAVY } });
+  ws.getCell(1, KEY_COLS + 1).value = "(단위: 백만원)";
+  ws.getCell(1, KEY_COLS + 1).font = f({ bold: true, color: { argb: INK } });
+  ws.getCell(1, KEY_COLS + 1).alignment = { horizontal: "left", vertical: "middle" };
+  ws.getRow(1).height = 24;
+
+  const HR = 2;   // 머리글 첫 줄
   const KEY_NAMES = ["보고용", "대조직", "구분", "대계정"];
   KEY_NAMES.forEach((v, i) => {
-    ws.getCell(1, i + 1).value = v;
-    ws.mergeCells(1, i + 1, 3, i + 1);
+    ws.getCell(HR, i + 1).value = v;
+    ws.mergeCells(HR, i + 1, HR + 2, i + 1);
   });
   blocks.forEach((b, bi) => {
     const c0 = firstCol + bi * BLOCK;
-    ws.getCell(1, c0).value = b.title;
-    ws.mergeCells(1, c0, 1, c0 + BLOCK - 1);
-    ws.getCell(2, c0).value = b.bud;
-    ws.mergeCells(2, c0, 2, c0 + 2);
-    ws.getCell(2, c0 + 3).value = b.act;
-    ws.mergeCells(2, c0 + 3, 2, c0 + 5);
-    ws.getCell(2, c0 + 6).value = "차이";
-    ws.mergeCells(2, c0 + 6, 3, c0 + 6);
-    ws.getCell(2, c0 + 7).value = "집행률";
-    ws.mergeCells(2, c0 + 7, 3, c0 + 7);
-    ["국내", "해외", "계", "국내", "해외", "계"].forEach((v, i) => (ws.getCell(3, c0 + i).value = v));
+    ws.getCell(HR, c0).value = b.title;
+    ws.mergeCells(HR, c0, HR, c0 + BLOCK - 1);
+    ws.getCell(HR + 1, c0).value = b.bud;
+    ws.mergeCells(HR + 1, c0, HR + 1, c0 + 2);
+    ws.getCell(HR + 1, c0 + 3).value = b.act;
+    ws.mergeCells(HR + 1, c0 + 3, HR + 1, c0 + 5);
+    ws.getCell(HR + 1, c0 + 6).value = "차이";
+    ws.mergeCells(HR + 1, c0 + 6, HR + 2, c0 + 6);
+    ws.getCell(HR + 1, c0 + 7).value = "집행률";
+    ws.mergeCells(HR + 1, c0 + 7, HR + 2, c0 + 7);
+    ["국내", "해외", "계", "국내", "해외", "계"].forEach((v, i) => (ws.getCell(HR + 2, c0 + i).value = v));
   });
-  for (let r = 1; r <= 3; r++) {
+  for (let r = HR; r <= HR + 2; r++) {
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c);
-      const isKey = c <= KEY_COLS;
-      const dark = r === 1 || isKey;
-      cell.font = { bold: true, size: 10, color: { argb: dark ? "FFFFFFFF" : NAVY } };
-      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: dark ? HEAD_DARK : r === 2 ? HEAD_MID : HEAD_SOFT } };
+      const dark = r === HR || c <= KEY_COLS;
+      cell.font = f({ bold: true, color: { argb: dark ? "FFFFFFFF" : NAVY } });
+      cell.fill = fill(dark ? HEAD_DARK : r === HR + 1 ? HEAD_MID : HEAD_SOFT);
       cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
-      cell.border = box;
+      const off = c <= KEY_COLS ? -1 : (c - firstCol) % BLOCK;
+      cell.border = {
+        top: thin,
+        bottom: thin,
+        left: off === 0 || c === 1 ? edge : thin,
+        right: off === BLOCK - 1 || c === KEY_COLS ? edge : thin,
+      };
     }
   }
-  ws.getRow(1).height = 20;
-  ws.getRow(2).height = 18;
-  ws.getRow(3).height = 17;
+  ws.getRow(HR).height = 20;
+  ws.getRow(HR + 1).height = 18;
+  ws.getRow(HR + 2).height = 17;
 
-  // ── 값 채우기 ───────────────────────────────────────────────────────────────
-  /** 한 줄의 숫자 칸을 채운다. 국내·해외만 값이고 계·차이·집행률은 수식이다. */
-  function writeNumbers(row: number, get: (bi: number) => { bud: Cell; act: Cell }) {
+  // ── 값 ──────────────────────────────────────────────────────────────────────
+  type Pair = { bud: Cell; act: Cell };
+  const dataOf = (k: string) => (bi: number): Pair => {
+    const b = blocks[bi];
+    if (b.kind === "month") {
+      const m = months[bi];
+      return { bud: budMap.get(k)?.get(m) ?? zero(), act: actMap.get(k)?.get(m) ?? zero() };
+    }
+    const cumA = zero(), cumB = zero();
+    for (const m of months) {
+      const a = actMap.get(k)?.get(m);
+      if (a) { cumA.dom += a.dom; cumA.ovs += a.ovs; }
+      const bb = budMap.get(k)?.get(m);
+      if (bb) { cumB.dom += bb.dom; cumB.ovs += bb.ovs; }
+    }
+    return { bud: b.kind === "cum" ? cumB : budYear.get(k) ?? zero(), act: cumA };
+  };
+
+  // ── 요약 시트 ───────────────────────────────────────────────────────────────
+  // 본사·법인을 구분(인건비…기타)으로만 접은 한 장. 팀별 시트가 '어디서 썼나'라면
+  // 이 장은 '무엇에 썼나'다 — 참고 양식의 요약 시트와 같은 모양으로 맨 앞에 둔다.
+  {
+    const SB = 5;   // 예산 · 실적 · 차이 · 집행률 · 구성비
+    const sKey = 2; // 구분 · 항목
+    const sFirst = sKey + 1;
+    const sLast = sKey + blocks.length * SB;
+    const S = (c: number) => sh.getColumn(c).letter;
+
+    // 제목은 병합하지 않고 흘려 둔다 — 병합하면 두 칸 폭에 갇혀 글자가 잘린다.
+    sh.getCell(1, 1).value = `▣ EVCS 사업부 ${lastMonth}월 누계 실적`;
+    sh.getCell(1, 1).font = f({ bold: true, size: 13, color: { argb: NAVY } });
+    sh.getCell(1, sKey + 3).value = "(단위: 백만원)";
+    sh.getCell(1, sKey + 3).font = f({ bold: true, color: { argb: INK } });
+    sh.getCell(1, sKey + 3).alignment = { horizontal: "left", vertical: "middle" };
+    sh.getRow(1).height = 24;
+
+    ["구분", "항목"].forEach((v, i) => {
+      sh.getCell(2, i + 1).value = v;
+      sh.mergeCells(2, i + 1, 3, i + 1);
+    });
+    blocks.forEach((b, bi) => {
+      const c0 = sFirst + bi * SB;
+      sh.getCell(2, c0).value = b.title;
+      sh.mergeCells(2, c0, 2, c0 + SB - 1);
+      [b.bud, b.act, "차이", "집행률", "구성비"].forEach((v, i) => (sh.getCell(3, c0 + i).value = v));
+    });
+    for (let r = 2; r <= 3; r++) {
+      for (let c = 1; c <= sLast; c++) {
+        const cell = sh.getCell(r, c);
+        const dark = r === 2 || c <= sKey;
+        cell.font = f({ bold: true, color: { argb: dark ? "FFFFFFFF" : NAVY } });
+        cell.fill = fill(dark ? HEAD_DARK : HEAD_MID);
+        cell.alignment = { horizontal: "center", vertical: "middle", wrapText: true };
+        const off = c <= sKey ? -1 : (c - sFirst) % SB;
+        cell.border = { top: thin, bottom: thin, left: off === 0 || c === 1 ? edge : thin, right: off === SB - 1 || c === sKey ? edge : thin };
+      }
+    }
+    sh.getRow(2).height = 20;
+    sh.getRow(3).height = 18;
+
+    // 구분별로 모은다 (본사/법인 × 구분).
+    const sumBy = new Map<string, (bi: number) => Pair>();
+    const catsOf = (hq: string) => {
+      const set = new Set<string>();
+      for (const k of keys) if ((parts(k)[0] === "본사") === (hq === "본사")) set.add(parts(k)[3]);
+      return [...set].sort((a, b) => catRank(a) - catRank(b) || a.localeCompare(b, "ko"));
+    };
+    const pick = (hq: string, cat: string) =>
+      keys.filter((k) => (parts(k)[0] === "본사") === (hq === "본사") && parts(k)[3] === cat);
+    for (const hq of ["본사", "법인"]) {
+      for (const cat of catsOf(hq)) {
+        const ks = pick(hq, cat);
+        sumBy.set(hq + SEP + cat, (bi: number) => {
+          const bud = zero(), act = zero();
+          for (const k of ks) {
+            const v = dataOf(k)(bi);
+            bud.dom += v.bud.dom; bud.ovs += v.bud.ovs;
+            act.dom += v.act.dom; act.ovs += v.act.ovs;
+          }
+          return { bud, act };
+        });
+      }
+    }
+
+    let sr = 4;
+    const subRows: number[] = [];
+    const totalRowPlaceholder: number[] = [];
+    for (const hq of ["본사", "법인"]) {
+      const cats = catsOf(hq);
+      const rowsHere: number[] = [];
+      cats.forEach((cat, i) => {
+        if (i === 0) sh.getCell(sr, 1).value = hq;
+        sh.getCell(sr, 2).value = cat;
+        const get = sumBy.get(hq + SEP + cat)!;
+        blocks.forEach((_, bi) => {
+          const c0 = sFirst + bi * SB;
+          const v = get(bi);
+          sh.getCell(sr, c0).value = Math.round(v.bud.dom + v.bud.ovs);
+          sh.getCell(sr, c0 + 1).value = Math.round(v.act.dom + v.act.ovs);
+          sh.getCell(sr, c0 + 2).value = { formula: `${S(c0 + 1)}${sr}-${S(c0)}${sr}` };
+          sh.getCell(sr, c0 + 3).value = { formula: `IF(${S(c0)}${sr}=0,"",${S(c0 + 1)}${sr}/${S(c0)}${sr})` };
+          totalRowPlaceholder.push(0);   // 구성비는 Total 줄이 정해진 뒤에 채운다
+        });
+        rowsHere.push(sr);
+        sr++;
+      });
+      sh.getCell(sr, 1).value = hq;
+      sh.getCell(sr, 2).value = "S-T";
+      blocks.forEach((_, bi) => {
+        const c0 = sFirst + bi * SB;
+        for (const off of [0, 1]) {
+          sh.getCell(sr, c0 + off).value = { formula: `SUM(${rowsHere.map((r) => `${S(c0 + off)}${r}`).join(",")})` };
+        }
+        sh.getCell(sr, c0 + 2).value = { formula: `${S(c0 + 1)}${sr}-${S(c0)}${sr}` };
+        sh.getCell(sr, c0 + 3).value = { formula: `IF(${S(c0)}${sr}=0,"",${S(c0 + 1)}${sr}/${S(c0)}${sr})` };
+      });
+      for (let c = 1; c <= sLast; c++) {
+        sh.getCell(sr, c).fill = fill(GRP_USE);
+        sh.getCell(sr, c).font = f({ bold: true, color: { argb: NAVY } });
+      }
+      subRows.push(sr);
+      sr++;
+    }
+    const totalRow = sr;
+    sh.getCell(totalRow, 1).value = "Total";
+    sh.mergeCells(totalRow, 1, totalRow, 2);
+    blocks.forEach((_, bi) => {
+      const c0 = sFirst + bi * SB;
+      for (const off of [0, 1]) {
+        sh.getCell(totalRow, c0 + off).value = { formula: `SUM(${subRows.map((r) => `${S(c0 + off)}${r}`).join(",")})` };
+      }
+      sh.getCell(totalRow, c0 + 2).value = { formula: `${S(c0 + 1)}${totalRow}-${S(c0)}${totalRow}` };
+      sh.getCell(totalRow, c0 + 3).value = { formula: `IF(${S(c0)}${totalRow}=0,"",${S(c0 + 1)}${totalRow}/${S(c0)}${totalRow})` };
+      sh.getCell(totalRow, c0 + 4).value = { formula: `IF(${S(c0 + 1)}${totalRow}=0,"",1)` };
+    });
+    for (let c = 1; c <= sLast; c++) {
+      sh.getCell(totalRow, c).fill = fill(HEAD_DARK);
+      sh.getCell(totalRow, c).font = f({ bold: true, size: 11, color: { argb: "FFFFFFFF" } });
+    }
+    // 구성비 — 그 줄의 실적이 Total 실적에서 차지하는 몫.
+    for (let r = 4; r < totalRow; r++) {
+      blocks.forEach((_, bi) => {
+        const c0 = sFirst + bi * SB;
+        sh.getCell(r, c0 + 4).value = {
+          formula: `IF(${S(c0 + 1)}$${totalRow}=0,"",${S(c0 + 1)}${r}/${S(c0 + 1)}$${totalRow})`,
+        };
+      });
+    }
+
+    for (let r = 4; r <= totalRow; r++) {
+      for (let c = 1; c <= sLast; c++) {
+        const cell = sh.getCell(r, c);
+        if (!cell.font) cell.font = f({ color: { argb: INK } });
+        if (c <= sKey) {
+          cell.alignment = { horizontal: "left", vertical: "middle" };
+          cell.border = { top: hair, bottom: hair, left: c === 1 ? edge : thin, right: c === sKey ? edge : thin };
+        } else {
+          const off = (c - sFirst) % SB;
+          cell.numFmt = off === 3 || off === 4 ? PCT : NUM;
+          cell.alignment = { horizontal: "right", vertical: "middle" };
+          cell.border = { top: hair, bottom: hair, left: off === 0 ? edge : hair, right: off === SB - 1 ? edge : hair };
+        }
+      }
+    }
+    sh.getColumn(1).width = 10;
+    sh.getColumn(2).width = 14;
+    for (let c = sFirst; c <= sLast; c++) {
+      const off = (c - sFirst) % SB;
+      sh.getColumn(c).width = off >= 3 ? 9.5 : 12.5;
+    }
+    sh.views = [{ state: "frozen", xSplit: 2, ySplit: 3 }];
+  }
+
+  /** 한 블록에서 값이 아닌 칸(계·차이·집행률)을 수식으로 채운다. */
+  function derive(row: number, c0: number) {
+    ws.getCell(row, c0 + 2).value = { formula: `SUM(${L(c0)}${row}:${L(c0 + 1)}${row})` };
+    ws.getCell(row, c0 + 5).value = { formula: `SUM(${L(c0 + 3)}${row}:${L(c0 + 4)}${row})` };
+    ws.getCell(row, c0 + 6).value = { formula: `${L(c0 + 5)}${row}-${L(c0 + 2)}${row}` };
+    ws.getCell(row, c0 + 7).value = { formula: `IF(${L(c0 + 2)}${row}=0,"",${L(c0 + 5)}${row}/${L(c0 + 2)}${row})` };
+  }
+  /** 상세 줄 — 국내·해외만 값이고 나머지는 수식. */
+  function writeNumbers(row: number, get: (bi: number) => Pair) {
     blocks.forEach((_, bi) => {
       const c0 = firstCol + bi * BLOCK;
       const v = get(bi);
       ws.getCell(row, c0).value = Math.round(v.bud.dom);
       ws.getCell(row, c0 + 1).value = Math.round(v.bud.ovs);
-      ws.getCell(row, c0 + 2).value = { formula: `SUM(${L(c0)}${row}:${L(c0 + 1)}${row})` };
       ws.getCell(row, c0 + 3).value = Math.round(v.act.dom);
       ws.getCell(row, c0 + 4).value = Math.round(v.act.ovs);
-      ws.getCell(row, c0 + 5).value = { formula: `SUM(${L(c0 + 3)}${row}:${L(c0 + 4)}${row})` };
-      ws.getCell(row, c0 + 6).value = { formula: `${L(c0 + 5)}${row}-${L(c0 + 2)}${row}` };
-      ws.getCell(row, c0 + 7).value = {
-        formula: `IF(${L(c0 + 2)}${row}=0,"",${L(c0 + 5)}${row}/${L(c0 + 2)}${row})`,
-      };
+      derive(row, c0);
     });
   }
-  /** 합계 줄 — 국내·해외는 아래 줄들을 더하고, 나머지는 같은 수식을 다시 쓴다. */
+  /** 합계 줄 — 국내·해외는 아래 줄들을 더하고 나머지는 같은 수식. */
   function writeSum(row: number, srcRows: number[]) {
     blocks.forEach((_, bi) => {
       const c0 = firstCol + bi * BLOCK;
@@ -203,32 +413,21 @@ export async function GET() {
         const col = L(c0 + off);
         ws.getCell(row, c0 + off).value = { formula: `SUM(${srcRows.map((r) => `${col}${r}`).join(",")})` };
       }
-      ws.getCell(row, c0 + 2).value = { formula: `SUM(${L(c0)}${row}:${L(c0 + 1)}${row})` };
-      ws.getCell(row, c0 + 5).value = { formula: `SUM(${L(c0 + 3)}${row}:${L(c0 + 4)}${row})` };
-      ws.getCell(row, c0 + 6).value = { formula: `${L(c0 + 5)}${row}-${L(c0 + 2)}${row}` };
-      ws.getCell(row, c0 + 7).value = {
-        formula: `IF(${L(c0 + 2)}${row}=0,"",${L(c0 + 5)}${row}/${L(c0 + 2)}${row})`,
-      };
+      derive(row, c0);
     });
   }
-  const dataOf = (k: string) => (bi: number) => {
-    if (bi < months.length) {
-      const m = months[bi];
-      return { bud: budMap.get(k)?.get(m) ?? zero(), act: actMap.get(k)?.get(m) ?? zero() };
+  /** 합계 줄의 글자·바탕. */
+  function paint(row: number, bg: string, color: string, size: number) {
+    for (let c = 1; c <= lastCol; c++) {
+      ws.getCell(row, c).fill = fill(bg);
+      ws.getCell(row, c).font = f({ bold: true, size, color: { argb: color } });
     }
-    const cum = zero();
-    for (const m of months) {
-      const a = actMap.get(k)?.get(m);
-      if (a) { cum.dom += a.dom; cum.ovs += a.ovs; }
-    }
-    return { bud: budYear.get(k) ?? zero(), act: cum };
-  };
+  }
 
-  let row = 4;
-  const hqUseRows: number[] = [];      // 본사 보고용 합계 줄
-  const corpUseRows: number[] = [];    // 법인 보고용 합계 줄
+  let row = HR + 3;
+  const useRowsOf: Record<string, number[]> = { 본사: [], 법인: [] };
+  const bigRows: number[] = [];
 
-  // 보고용 단위로 끊어 내려간다.
   const useOrder: string[] = [];
   const byUse = new Map<string, string[]>();
   for (const k of keys) {
@@ -236,14 +435,21 @@ export async function GET() {
     if (!byUse.has(u)) { byUse.set(u, []); useOrder.push(u); }
     byUse.get(u)!.push(k);
   }
+  const hqUses = useOrder.filter((u) => u.split(SEP)[0] === "본사");
+  const corpUses = useOrder.filter((u) => u.split(SEP)[0] !== "본사");
 
-  for (const u of useOrder) {
+  /**
+   * 보고용 한 덩이. 행 접기는 두 단계다 —
+   *   2단계: 대계정 상세 → 구분 소계 아래로 접힘
+   *   1단계: 구분 소계  → 보고용 합계 아래로 접힘
+   * 소계가 늘 아래에 오므로 엑셀 기본(summaryBelow)과 맞는다.
+   */
+  function writeUseBlock(u: string) {
     const ks = byUse.get(u)!;
     const [hq, useName] = u.split(SEP);
     const catRows: number[] = [];
+    const blockFirstRow = row;
     let prevOrg = "";
-    const blockFirstRow = row;   // 보고용 이름은 이 묶음의 첫 줄에만 적는다
-    // 구분 단위로 다시 끊는다 (대조직이 바뀌어도 구분 묶음은 대조직 안에서 센다).
     let i = 0;
     while (i < ks.length) {
       const [, , org, cat] = parts(ks[i]);
@@ -261,101 +467,82 @@ export async function GET() {
         if (j === 0) ws.getCell(row, 3).value = cat;
         ws.getCell(row, 4).value = acct;
         writeNumbers(row, dataOf(k));
+        ws.getRow(row).outlineLevel = 2;
         detailRows.push(row);
-        row++;
         prevOrg = org;
+        row++;
       });
-      // 구분 소계
       ws.getCell(row, 4).value = `${cat} 소계`;
       writeSum(row, detailRows);
-      ws.getRow(row).eachCell({ includeEmpty: true }, (c) => {
-        c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GRP_CAT } };
-        c.font = { bold: true, size: 10, color: { argb: INK } };
-      });
+      paint(row, GRP_CAT, INK, 10);
+      ws.getRow(row).outlineLevel = 1;
       catRows.push(row);
       row++;
     }
     ws.getCell(blockFirstRow, 1).value = useName;
-    // 보고용 합계
     ws.getCell(row, 1).value = `${useName} 합계`;
     ws.mergeCells(row, 1, row, 4);
     writeSum(row, catRows);
-    ws.getRow(row).eachCell({ includeEmpty: true }, (c) => {
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GRP_USE } };
-      c.font = { bold: true, size: 10.5, color: { argb: NAVY } };
-    });
-    (hq === "본사" ? hqUseRows : corpUseRows).push(row);
+    paint(row, GRP_USE, NAVY, 10.5);
+    useRowsOf[hq === "본사" ? "본사" : "법인"].push(row);
     row++;
   }
 
-  // 본사 합계 / 법인 합계 / 총 합계
-  const bigRows: number[] = [];
-  for (const [label, src] of [["본사 합계", hqUseRows], ["법인 합계", corpUseRows]] as const) {
-    if (!src.length) continue;
+  // 본사 묶음 → 본사 합계 → 법인 묶음 → 법인 합계 → 총 합계.
+  for (const u of hqUses) writeUseBlock(u);
+  for (const [label, key] of [["본사 합계", "본사"], ["법인 합계", "법인"]] as const) {
+    if (label === "법인 합계") for (const u of corpUses) writeUseBlock(u);
+    if (!useRowsOf[key].length) continue;
     ws.getCell(row, 1).value = label;
     ws.mergeCells(row, 1, row, 4);
-    writeSum(row, src);
-    ws.getRow(row).eachCell({ includeEmpty: true }, (c) => {
-      c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: GRP_HQ } };
-      c.font = { bold: true, size: 11, color: { argb: NAVY } };
-    });
+    writeSum(row, useRowsOf[key]);
+    paint(row, GRP_HQ, NAVY, 11);
     bigRows.push(row);
     row++;
   }
   ws.getCell(row, 1).value = "총 합계";
   ws.mergeCells(row, 1, row, 4);
   writeSum(row, bigRows);
-  ws.getRow(row).eachCell({ includeEmpty: true }, (c) => {
-    c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: HEAD_DARK } };
-    c.font = { bold: true, size: 11, color: { argb: "FFFFFFFF" } };
-  });
+  paint(row, HEAD_DARK, "FFFFFFFF", 11);
   const lastRow = row;
 
   // ── 모양 ────────────────────────────────────────────────────────────────────
-  for (let r = 4; r <= lastRow; r++) {
+  for (let r = HR + 3; r <= lastRow; r++) {
     for (let c = 1; c <= lastCol; c++) {
       const cell = ws.getCell(r, c);
-      cell.border = c <= KEY_COLS ? box : { ...box, left: hair, right: hair };
+      if (!cell.font) cell.font = f({ color: { argb: INK } });
       if (c <= KEY_COLS) {
-        cell.alignment = { horizontal: c === 4 ? "left" : "left", vertical: "middle", indent: c === 4 ? 1 : 0 };
+        cell.alignment = { horizontal: "left", vertical: "middle", indent: c === 4 ? 1 : 0 };
+        cell.border = { top: hair, bottom: hair, left: c === 1 ? edge : thin, right: c === KEY_COLS ? edge : thin };
       } else {
         const off = (c - firstCol) % BLOCK;
-        cell.numFmt = off === 7 ? "0%" : "#,##0";
+        cell.numFmt = off === 7 ? PCT : NUM;
         cell.alignment = { horizontal: "right", vertical: "middle" };
-        if (!cell.font) cell.font = { size: 10 };
+        // 월과 월 사이는 굵게, 예산과 실적 사이는 가늘게 — 눈이 블록을 바로 가른다.
+        cell.border = {
+          top: hair,
+          bottom: hair,
+          left: off === 0 ? edge : off === 3 ? thin : hair,
+          right: off === BLOCK - 1 ? edge : hair,
+        };
       }
-    }
-    // 블록 사이에 굵은 세로선을 둬 월 경계를 눈으로 잡게 한다.
-    blocks.forEach((_, bi) => {
-      const c0 = firstCol + bi * BLOCK;
-      ws.getCell(r, c0).border = { ...ws.getCell(r, c0).border, left: thin };
-      ws.getCell(r, c0 + 2).border = { ...ws.getCell(r, c0 + 2).border, left: hair, right: thin };
-      ws.getCell(r, c0 + 5).border = { ...ws.getCell(r, c0 + 5).border, left: hair, right: thin };
-    });
-  }
-  // 작은 글씨로 두는 상세 줄 (합계 줄은 위에서 이미 굵게 칠했다).
-  for (let r = 4; r <= lastRow; r++) {
-    const f = ws.getCell(r, 1).font;
-    if (!f?.bold) {
-      for (let c = 1; c <= KEY_COLS; c++) ws.getCell(r, c).font = { size: 10, color: { argb: INK } };
     }
   }
 
-  // 열 그룹을 쓰면 시트 머리의 outlineLevelCol도 함께 올라가야 한다 — 0으로 남으면 엑셀이
-  // 파일을 고장난 것으로 보고 복구 창을 띄운다.
-  ws.properties.outlineLevelCol = 1;
   ws.getColumn(1).width = 15;
   ws.getColumn(2).width = 13;
-  ws.getColumn(3).width = 12;
-  ws.getColumn(4).width = 20;
+  ws.getColumn(3).width = 11;
+  ws.getColumn(4).width = 20.5;
   for (let c = firstCol; c <= lastCol; c++) {
     const off = (c - firstCol) % BLOCK;
     const col = ws.getColumn(c);
-    // '계'와 '차이'는 자릿수가 가장 크다 — 좁으면 ####로 가려지므로 한 단계 넓게 둔다.
-    col.width = off === 7 ? 8 : off === 2 || off === 5 || off === 6 ? 14.5 : 12.5;
-    // 국내·해외는 접을 수 있게 묶는다 — 접으면 '계'만 남아 한눈에 들어온다.
+    // 백만원으로 줄여 보이므로 자릿수가 짧다. '계'와 '차이'만 한 칸 넓게 둔다.
+    col.width = off === 7 ? 9 : off === 2 || off === 5 || off === 6 ? 11.5 : 10.5;
+    // 국내·해외는 접을 수 있게 묶는다 — 접으면 '계'만 남는다.
     if (off === 0 || off === 1 || off === 3 || off === 4) col.outlineLevel = 1;
   }
+  ws.properties.outlineLevelCol = 1;
+  ws.properties.outlineLevelRow = 2;
 
   const buf = await wb.xlsx.writeBuffer();
   const name = encodeURIComponent(`EVCS ${lastMonth}월 누계 실적 상세.xlsx`);
