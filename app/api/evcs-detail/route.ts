@@ -341,6 +341,9 @@ export async function GET() {
     }
   }
 
+  // 열 그룹을 쓰면 시트 머리의 outlineLevelCol도 함께 올라가야 한다 — 0으로 남으면 엑셀이
+  // 파일을 고장난 것으로 보고 복구 창을 띄운다.
+  ws.properties.outlineLevelCol = 1;
   ws.getColumn(1).width = 15;
   ws.getColumn(2).width = 13;
   ws.getColumn(3).width = 12;
@@ -348,12 +351,11 @@ export async function GET() {
   for (let c = firstCol; c <= lastCol; c++) {
     const off = (c - firstCol) % BLOCK;
     const col = ws.getColumn(c);
-    col.width = off === 7 ? 8 : 12;
+    // '계'와 '차이'는 자릿수가 가장 크다 — 좁으면 ####로 가려지므로 한 단계 넓게 둔다.
+    col.width = off === 7 ? 8 : off === 2 || off === 5 || off === 6 ? 14.5 : 12.5;
     // 국내·해외는 접을 수 있게 묶는다 — 접으면 '계'만 남아 한눈에 들어온다.
     if (off === 0 || off === 1 || off === 3 || off === 4) col.outlineLevel = 1;
   }
-  ws.properties.outlineProperties = { summaryBelow: false, summaryRight: true };
-  ws.autoFilter = { from: { row: 3, column: 1 }, to: { row: 3, column: KEY_COLS } };
 
   const buf = await wb.xlsx.writeBuffer();
   const name = encodeURIComponent(`EVCS ${lastMonth}월 누계 실적 상세.xlsx`);
