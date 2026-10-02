@@ -444,6 +444,14 @@ export async function GET() {
       derive(row, c0);
     });
   }
+  /**
+   * 접힘 표시. exceljs는 collapsed를 outlineLevel에서 유도하기만 해서 묶인 줄마다 켜 버리는데,
+   * 엑셀은 묶음 바로 아래 '요약 줄'의 collapsed로 +/- 단추를 그린다 — 그래서 줄마다 직접 못 박는다.
+   * 이게 없으면 상세가 숨겨진 채로도 단추가 '−'로 보여 한 번 눌러야 아무 일도 안 일어난다.
+   */
+  const setCollapsed = (r: number, v: boolean) =>
+    Object.defineProperty(ws.getRow(r), "collapsed", { value: v, configurable: true });
+
   /** 합계 줄의 글자·바탕. */
   function paint(row: number, bg: string, color: string, size: number) {
     for (let c = 1; c <= lastCol; c++) {
@@ -468,9 +476,13 @@ export async function GET() {
 
   /**
    * 보고용 한 덩이. 행 접기는 두 단계다 —
-   *   2단계: 대계정 상세 → 구분 소계 아래로 접힘
-   *   1단계: 구분 소계  → 보고용 합계 아래로 접힘
+   *   2단계: 대계정 상세 → 구분 줄 아래로 접힘
+   *   1단계: 구분 줄    → 보고용 합계 아래로 접힘
    * 소계가 늘 아래에 오므로 엑셀 기본(summaryBelow)과 맞는다.
+   *
+   * 파일은 2단계(상세가 접힌 모습)로 열리므로, 접었을 때 보이는 줄은 구분 줄뿐이다.
+   * 그래서 대조직은 구분 줄에도 적는다 — 한 보고용 안에 '지급수수료'가 대조직만 달리해
+   * 두 번 나오는 일이 있어서, 이게 없으면 접은 화면에서 둘을 구별할 수 없다.
    */
   function writeUseBlock(u: string) {
     const ks = byUse.get(u)!;
@@ -478,6 +490,7 @@ export async function GET() {
     const catRows: number[] = [];
     const blockFirstRow = row;
     let prevOrg = "";
+    let prevCatOrg = "";
     let i = 0;
     while (i < ks.length) {
       const [, , org, cat] = parts(ks[i]);
@@ -496,14 +509,19 @@ export async function GET() {
         ws.getCell(row, 4).value = acct;
         writeNumbers(row, dataOf(k));
         ws.getRow(row).outlineLevel = 2;
+        ws.getRow(row).hidden = true;   // 2단계로 접힌 채 열린다
+        setCollapsed(row, false);
         detailRows.push(row);
         prevOrg = org;
         row++;
       });
-      ws.getCell(row, 4).value = `${cat} 소계`;
+      if (org !== prevCatOrg) ws.getCell(row, 2).value = org;
+      prevCatOrg = org;
+      ws.getCell(row, 4).value = cat;
       writeSum(row, detailRows);
       paint(row, GRP_CAT, INK, 10);
       ws.getRow(row).outlineLevel = 1;
+      setCollapsed(row, true);
       catRows.push(row);
       row++;
     }
