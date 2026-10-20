@@ -240,7 +240,7 @@ export const SUMMARY_DETAIL_GROUPS: Record<string, SummaryCommentGroup[]> = {
       lines: [
         "[지급수수료]",
         "외주개발용역비 누계 260백만(집행률 33%) — 예산 대비 522백만 미집행 (New Aura/iWedia SW이슈로 지연)",
-        "Charter Legal fee/B&M 9월 64백만 추가 집행 (누계 270백만, 예산 외)",
+        "Charter Legal fee/B&M 누계 270백만 집행 (6월 72백만, 7월 55백만, 8월 79백만, 9월 64백만) — 예산 외",
       ],
     },
     {
