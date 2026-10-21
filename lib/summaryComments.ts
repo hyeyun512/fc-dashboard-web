@@ -330,9 +330,10 @@ export const SUMMARY_TREND_GROUPS: Record<string, SummaryCommentGroup[]> = {
       lines: [
         "4월, 5월 트렌드 왜곡",
         "-STB License Fee/Nagra 4월 -84백만, 5월 +84백만 (선급비용 결산 조정 지연)",
-        "1~5월 평균 476백만 대비 6월 60백만, 7월 45백만 초과 · 8월 66백만 하회",
+        "일회성 증감 항목",
         "-Charter B&M Legal fee 6월 72백만, 7월 55백만, 8월 79백만 집행 (누계 206백만)",
-        "-HUS 8월 의료보험료 환급 -52백만, 유급휴가 충당금 회수 -28백만, 급여 -26백만 (2Q 7명 → 3Q 5명)",
+        "-HUS 8월 의료보험료 환급 -52백만, 유급휴가 충당금 회수 -28백만",
+        "-HUS 급여 8월 45백만 (2Q 월평균 59백만) — 2Q 7명 → 3Q 5명",
       ],
     },
     {
@@ -365,7 +366,8 @@ export const SUMMARY_TREND_GROUPS: Record<string, SummaryCommentGroup[]> = {
         "-STB License Fee/Nagra 4월 -84백만, 5월 +84백만 (선급비용 결산 조정 지연)",
         "일회성 증감 항목",
         "-Charter B&M Legal fee 6월 72백만, 7월 55백만, 8월 79백만, 9월 64백만 집행 (누계 270백만)",
-        "-HUS 8월 의료보험료 환급 -52백만, 유급휴가 충당금 회수 -28백만, 급여 -26백만 (2Q 7명 → 3Q 5명)",
+        "-HUS 8월 의료보험료 환급 -52백만, 유급휴가 충당금 회수 -28백만",
+        "-HUS 급여 2Q 월평균 59백만 → 3Q 월평균 55백만 (2Q 7명 → 3Q 5명)",
       ],
     },
     {
