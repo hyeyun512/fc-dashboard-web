@@ -64,28 +64,40 @@ type Row = {
 const COLUMNS =
   "month,hq_corp,report_use_re,company,large_org,category,main_account_re,amount_krw,evcs_domestic_krw,evcs_overseas_krw,stb_krw,mobility_krw,humax_common_krw,building_krw,h_mobility_krw,h_ev_krw,hiparking_krw,peoplecar_krw,winercom_krw,holdings_krw,h_networks_krw";
 
+/**
+ * 한 테이블을 통째로 읽어 온다.
+ *
+ * PostgREST가 한 번에 1000행까지만 주므로 2만 행이면 스무 번을 물어야 하는데, 이걸 순서대로
+ * 기다리면 왕복 지연이 그대로 스무 배가 된다. 그래서 첫 장을 받을 때 전체 행 수를 함께 받고,
+ * 남은 장은 한꺼번에 띄운다 — 왕복이 '행수/1000'번에서 사실상 두 번으로 줄어든다.
+ */
 async function fetchAllRows(
   table: string,
   filterMonths?: string[]
 ): Promise<Row[]> {
   const supabase = getSupabaseAdmin();
   const pageSize = 1000;
-  let from = 0;
-  const rows: Row[] = [];
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    let q = supabase.from(table).select(COLUMNS).range(from, from + pageSize - 1);
-    if (filterMonths && filterMonths.length) {
-      q = q.in("month", filterMonths);
-    }
-    const { data, error } = await q;
-    if (error) {
-      throw new Error(`Supabase 조회 실패 (${table}): ${error.message}`);
-    }
-    if (!data || data.length === 0) break;
-    rows.push(...(data as Row[]));
-    if (data.length < pageSize) break;
-    from += pageSize;
+  const page = (from: number, withCount = false) => {
+    let q = supabase
+      .from(table)
+      .select(COLUMNS, withCount ? { count: "exact" } : undefined)
+      .range(from, from + pageSize - 1);
+    if (filterMonths && filterMonths.length) q = q.in("month", filterMonths);
+    return q;
+  };
+
+  const first = await page(0, true);
+  if (first.error) throw new Error(`Supabase 조회 실패 (${table}): ${first.error.message}`);
+  const rows = (first.data ?? []) as Row[];
+  const total = first.count ?? rows.length;
+  if (total <= pageSize) return rows;
+
+  const rest = await Promise.all(
+    Array.from({ length: Math.ceil(total / pageSize) - 1 }, (_, i) => page((i + 1) * pageSize))
+  );
+  for (const r of rest) {
+    if (r.error) throw new Error(`Supabase 조회 실패 (${table}): ${r.error.message}`);
+    rows.push(...((r.data ?? []) as Row[]));
   }
   return rows;
 }
@@ -111,16 +123,19 @@ export async function loadDashboardData(): Promise<DashboardData> {
   const actualTable = tableNameData as string;
   if (!actualTable) throw new Error('"26년 실적_N월 누계" 형태의 테이블을 찾지 못했습니다.');
 
-  const actualRows = await fetchAllRows(actualTable);
+  // 예산은 연간 전체(1~12월)를 한 번만 받아 경과분은 메모리에서 거른다 — 같은 표를 두 번 받던 것을
+  // 한 번으로 줄였다. 실적과 예산은 서로를 기다릴 이유가 없으므로 함께 띄운다.
+  const [actualRows, budgetRowsFullYear] = await Promise.all([
+    fetchAllRows(actualTable),
+    fetchAllRows(BUDGET_TABLE),
+  ]);
 
   const monthSet = new Set(actualRows.map((r) => r.month));
   const months = [...monthSet].sort((a, b) => monthNum(a) - monthNum(b));
   if (months.length === 0) throw new Error(`${actualTable} 테이블에 데이터가 없습니다.`);
   const defaultMonth = months[months.length - 1];
 
-  const budgetRows = await fetchAllRows(BUDGET_TABLE, months);
-  // 예산은 연간 전체(1~12월)가 미리 잡혀 있는 경우가 많아, 미경과 기간 예산선 표시를 위해 전체를 따로 받아둔다.
-  const budgetRowsFullYear = await fetchAllRows(BUDGET_TABLE);
+  const budgetRows = budgetRowsFullYear.filter((r) => monthSet.has(r.month));
   const allMonths = [...new Set(budgetRowsFullYear.map((r) => r.month))].sort((a, b) => monthNum(a) - monthNum(b));
 
   const categorySet = new Set<string>();
