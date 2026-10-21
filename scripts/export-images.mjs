@@ -39,6 +39,14 @@ const URL_ = arg("url", "https://fc-dashboard-web.vercel.app/");
 const WANT_MONTH = arg("month", "");
 const OUT_ROOT = arg("out", join(REPO, "보고 이미지"));
 /**
+ * 지난달 판과 달라진 자리에 노란 표시를 입혀 따로 한 장 더 뽑고 싶을 때 쓴다.
+ *   --mark 표시할곳.json --suffix _변경표시
+ * JSON은 { cells: [{table, row, col}], texts: ["바뀐 문구", …] } 꼴이다.
+ * 평소 보고용 그림은 이 옵션 없이 뽑으므로 표시가 섞이지 않는다.
+ */
+const MARK = arg("mark", "");
+const SUFFIX = arg("suffix", "");
+/**
  * 시트를 그릴 폭(css px). 표·도넛·항목별 Summary가 좌우로 벌어질 자리를 정한다.
  * 넓게 쓰고 싶으면 ZOOM이 아니라 이걸 키운다 — 그래야 세로가 같이 길어지지 않는다.
  */
@@ -240,6 +248,55 @@ await evaluate(`(() => {
   document.head.appendChild(s);
 })()`);
 
+if (MARK) {
+  const spec = JSON.parse(readFileSync(MARK, "utf8"));
+  const markHits = await evaluate(`(() => {
+    const spec = ${JSON.stringify(spec)};
+    const s = document.createElement('style');
+    s.textContent = '.fc-mark{background:#fef3c7 !important;box-shadow:inset 0 0 0 2px #f59e0b;border-radius:3px}'
+      + '.fc-mark-t{background:#fef3c7;box-shadow:0 0 0 2px #f59e0b;border-radius:3px;padding:0 1px}';
+    document.head.appendChild(s);
+
+    for (const c of spec.cells ?? []) {
+      const tb = document.querySelector('#' + c.table + ' table');
+      const tr = tb && tb.querySelectorAll('tr')[c.row];
+      const td = tr && tr.children[c.col];
+      if (td) td.classList.add('fc-mark');
+    }
+
+    // 문구는 그 부분만 감싼다 — 줄 전체를 칠하면 어디가 바뀐지 안 보인다.
+    // 다만 숫자가 굵게 처리되며 글자 마디가 쪼개져 있어, 한 마디 안에서 못 찾으면
+    // 그 문구를 품은 '가장 안쪽 칸'을 대신 칠한다.
+    const found = {};
+    for (const needle of spec.texts ?? []) {
+      const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+      const hits = [];
+      let node;
+      while ((node = walker.nextNode())) {
+        const i = node.nodeValue.indexOf(needle);
+        if (i >= 0 && !(node.parentElement && node.parentElement.classList.contains('fc-mark-t'))) hits.push([node, i]);
+      }
+      for (const [n, i] of hits) {
+        const after = n.splitText(i);
+        after.splitText(needle.length);
+        const span = document.createElement('span');
+        span.className = 'fc-mark-t';
+        after.parentNode.replaceChild(span, after);
+        span.appendChild(after);
+      }
+      if (hits.length) { found[needle] = 'text:' + hits.length; continue; }
+
+      const all = [...document.body.querySelectorAll('li,span,div,p,b,strong')]
+        .filter((e) => (e.textContent || '').includes(needle));
+      const inner = all.filter((e) => !all.some((o) => o !== e && e.contains(o)));
+      for (const e of inner) e.classList.add('fc-mark-t');
+      found[needle] = inner.length ? 'elem:' + inner.length : 'MISS';
+    }
+    return found;
+  })()`);
+  console.log("  표시:", Object.entries(markHits).map(([k, v]) => `${k} → ${v}`).join(" · "));
+}
+
 const month = await evaluate(`(() => {
   const sel = document.getElementById('monthSelect');
   const want = ${JSON.stringify(WANT_MONTH)};
@@ -289,7 +346,7 @@ for (const sheet of SHEETS) {
 
   const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
   const png = setPngDpi(Buffer.from(shot.data, "base64"), 96 * SCALE);
-  const dest = join(outDir, `${sheet.name}.png`);
+  const dest = join(outDir, `${sheet.name}${SUFFIX}.png`);
   writeFileSync(dest, png);
   // 실제 화소 = 배치 폭 × 확대배율 × 화소배율. 붙였을 때 보이는 크기는 여기서 화소배율만 뺀 값이다.
   const px = {
@@ -297,7 +354,7 @@ for (const sheet of SHEETS) {
     h: Math.round(size.h * ZOOM * SCALE),
   };
   const shown = { w: Math.round(px.w / SCALE), h: Math.round(px.h / SCALE) };
-  console.log(`  ${sheet.name}.png  ${px.w}×${px.h}px (붙이면 ${shown.w}×${shown.h})  ${(png.length / 1024).toFixed(0)}KB`);
+  console.log(`  ${sheet.name}${SUFFIX}.png  ${px.w}×${px.h}px (붙이면 ${shown.w}×${shown.h})  ${(png.length / 1024).toFixed(0)}KB`);
   pasteBlocks.push(
     `<p style="margin:0 0 18px"><img src="data:image/png;base64,${png.toString("base64")}"` +
     ` width="${shown.w}" height="${shown.h}" alt="${sheet.name}"></p>`
@@ -322,9 +379,9 @@ const pasteHtml =
   `아래를 전체 선택(Ctrl+A) → 복사(Ctrl+C) 해서 메일에 붙여 넣으세요. 네 장이 ${WIDTH}px 크기로 들어갑니다.</p>` +
   pasteBlocks.join("\n") +
   `</body></html>`;
-const pastePath = join(outDir, "붙여넣기용.html");
+const pastePath = join(outDir, `붙여넣기용${SUFFIX}.html`);
 writeFileSync(pastePath, pasteHtml, "utf8");
-console.log(`  붙여넣기용.html  (${(pasteHtml.length / 1024 / 1024).toFixed(1)}MB) — 열어서 Ctrl+A → Ctrl+C → 메일에 붙여넣기`);
+console.log(`  붙여넣기용${SUFFIX}.html  (${(pasteHtml.length / 1024 / 1024).toFixed(1)}MB) — 열어서 Ctrl+A → Ctrl+C → 메일에 붙여넣기`);
 
 console.log(
   SHEETS.length > 1
