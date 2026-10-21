@@ -41,7 +41,9 @@ const OUT_ROOT = arg("out", join(REPO, "보고 이미지"));
 /**
  * 지난달 판과 달라진 자리에 노란 표시를 입혀 따로 한 장 더 뽑고 싶을 때 쓴다.
  *   --mark 표시할곳.json --suffix _변경표시
- * JSON은 { cells: [{table, row, col}], texts: ["바뀐 문구", …] } 꼴이다.
+ * JSON은 { cells: [{table, row, col}], nums: [{tab, text}], texts: ["바뀐 문구", …] } 꼴이다.
+ * 코멘트는 숫자마다 칸이 따로 있으므로(.sc-num) nums로 그 숫자만 집는 쪽이 낫다 —
+ * texts는 줄 전체가 칠해져 안 바뀐 숫자까지 바뀐 것처럼 보인다.
  * 평소 보고용 그림은 이 옵션 없이 뽑으므로 표시가 섞이지 않는다.
  */
 const MARK = arg("mark", "");
@@ -264,10 +266,19 @@ if (MARK) {
       if (td) td.classList.add('fc-mark');
     }
 
+    const found = {};
+    // 코멘트 숫자는 칸(.sc-num)이 따로 있으니 글자가 꼭 맞는 것만 집는다.
+    for (const nd of spec.nums ?? []) {
+      const root = document.getElementById('tab-' + nd.tab) || document;
+      const hit = [...root.querySelectorAll('.sc-num, .sc-t')]
+        .filter((e) => (e.textContent || '').trim() === nd.text);
+      for (const e of hit) e.classList.add('fc-mark-t');
+      found[nd.tab + '/' + nd.text] = hit.length ? 'num:' + hit.length : 'MISS';
+    }
+
     // 문구는 그 부분만 감싼다 — 줄 전체를 칠하면 어디가 바뀐지 안 보인다.
     // 다만 숫자가 굵게 처리되며 글자 마디가 쪼개져 있어, 한 마디 안에서 못 찾으면
     // 그 문구를 품은 '가장 안쪽 칸'을 대신 칠한다.
-    const found = {};
     for (const needle of spec.texts ?? []) {
       const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
       const hits = [];
